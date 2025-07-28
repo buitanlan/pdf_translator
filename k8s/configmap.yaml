@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pdf-translator-nginx-config
+  namespace: pdf-translator
+  labels:
+    app: pdf-translator
+data:
+  nginx.conf: |
+    # Include custom MIME types
+    include /etc/nginx/mime.types;
+
+    server {
+        listen 80;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Enable gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_proxied expired no-cache no-store private auth;
+        gzip_types
+            text/plain
+            text/css
+            text/xml
+            text/javascript
+            application/json
+            application/javascript
+            application/xml+rss
+            application/atom+xml
+            image/svg+xml;
+
+        # Handle Angular routes (SPA fallback)
+        location / {
+            # Handle .mjs files with correct MIME type
+            location ~* \.mjs$ {
+                # target only *.mjs files
+                # now we can safely override types since we are only
+                # targeting a single file extension.
+                types {
+                    application/javascript mjs;
+                }
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+                try_files $uri =404;
+            }
+
+            # Handle .js files with correct MIME type
+            location ~* \.js$ {
+                types {
+                    application/javascript js;
+                }
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+                try_files $uri =404;
+            }
+
+            try_files $uri $uri/ /index.html;
+            
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "no-referrer-when-downgrade" always;
+            add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+        }
+
+        # Cache static assets for 1 year
+        location ~* \.(css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|bcmap|pfb|wasm)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        # Cache HTML files for 1 hour
+        location ~* \.html$ {
+            expires 1h;
+            add_header Cache-Control "public";
+        }
+
+        # Cache .ftl (localization) files
+        location ~* \.ftl$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+
+        # Error pages
+        error_page 404 /index.html;
+        error_page 500 502 503 504 /50x.html;
+        
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+    }

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pdf-translator
+  labels:
+    name: pdf-translator
+    app: pdf-translator

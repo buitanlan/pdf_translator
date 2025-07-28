@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: pdf-translator
+  namespace: pdf-translator
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+commonLabels:
+  app: pdf-translator
+  version: v1.0.0
+
+images:
+  - name: pdf-translator
+    newTag: latest
