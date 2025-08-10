@@ -13,4 +13,4 @@ export interface PdfListItem {
   uploadDate: Date;
   size: number;
   coverImage?: string;
-} 
+}

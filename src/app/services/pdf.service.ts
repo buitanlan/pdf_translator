@@ -14,10 +14,10 @@ export class PdfService {
   async uploadPdf(file: File): Promise<string> {
     const id = this.generateId();
     const coverImage = await this.generateCoverFromFirstPage(file);
-    
+
     // Convert File to ArrayBuffer for better IndexedDB storage
     const arrayBuffer = await file.arrayBuffer();
-    
+
     const pdfDocument: PdfDocument = {
       id,
       name: file.name,
@@ -69,12 +69,12 @@ export class PdfService {
       // Create canvas for rendering
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
+
       // Set desired dimensions for thumbnail
       const viewport = page.getViewport({ scale: 1 });
       const scale = Math.min(200 / viewport.width, 280 / viewport.height);
       const scaledViewport = page.getViewport({ scale });
-      
+
       canvas.width = scaledViewport.width;
       canvas.height = scaledViewport.height;
 
@@ -117,18 +117,18 @@ export class PdfService {
     canvas.width = 200;
     canvas.height = 280;
     const ctx = canvas.getContext('2d')!;
-    
+
     // Create a simple placeholder
     ctx.fillStyle = '#dc2626'; // Red background
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('PDF', canvas.width / 2, canvas.height / 2 - 10);
     ctx.font = '14px Arial';
     ctx.fillText(fileName.substring(0, 15), canvas.width / 2, canvas.height / 2 + 20);
-    
+
     return canvas.toDataURL();
   }
 
@@ -137,7 +137,7 @@ export class PdfService {
       console.error('Invalid file object for blob URL creation:', file);
       return '';
     }
-    
+
     try {
       const blob = new Blob([file], { type: 'application/pdf' });
       return URL.createObjectURL(blob);
@@ -152,9 +152,10 @@ export class PdfService {
     if (!file) return false;
     if (file.type !== 'application/pdf') return false;
     if (file.size === 0) return false;
-    if (file.size > 100 * 1024 * 1024) { // 100MB limit
+    if (file.size > 100 * 1024 * 1024) {
+      // 100MB limit
       console.warn('PDF file is very large:', file.size);
     }
     return true;
   }
-} 
+}

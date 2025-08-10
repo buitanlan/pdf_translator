@@ -37,7 +37,7 @@ export class IndexedDbService {
 
   async savePdf(pdf: PdfDocument): Promise<void> {
     if (!this.db) await this.initDB();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readwrite');
       const store = transaction.objectStore(this.storeName);
@@ -50,7 +50,7 @@ export class IndexedDbService {
 
   async getAllPdfs(): Promise<PdfListItem[]> {
     if (!this.db) await this.initDB();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
@@ -72,7 +72,7 @@ export class IndexedDbService {
 
   async getPdfById(id: string): Promise<PdfDocument | null> {
     if (!this.db) await this.initDB();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
@@ -85,7 +85,7 @@ export class IndexedDbService {
 
   async deletePdf(id: string): Promise<void> {
     if (!this.db) await this.initDB();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readwrite');
       const store = transaction.objectStore(this.storeName);
@@ -95,4 +95,4 @@ export class IndexedDbService {
       request.onsuccess = () => resolve();
     });
   }
-} 
+}

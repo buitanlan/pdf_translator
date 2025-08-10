@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 import { PdfService } from '../../services/pdf.service';
@@ -8,22 +8,19 @@ import { PdfDocument } from '../../models/pdf.interface';
 @Component({
   selector: 'app-pdf-viewer',
   standalone: true,
-  imports: [CommonModule, NgxExtendedPdfViewerModule],
+  imports: [NgxExtendedPdfViewerModule],
   template: `
     <div class="min-h-screen bg-gray-100">
       <div class="bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
+          <div class="flex items-center justify-between h-12">
             <div class="flex items-center">
-              <button 
-                (click)="goBack()" 
-                class="mr-4 p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
-              >
+              <button (click)="goBack()" class="mr-4 p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
               </button>
-              <h1 class="text-lg font-medium text-gray-900 truncate">
+              <h1 class="text-sm sm:text-base font-medium text-gray-900 truncate">
                 {{ pdfDocument?.name || 'Loading...' }}
               </h1>
             </div>
@@ -32,58 +29,60 @@ import { PdfDocument } from '../../models/pdf.interface';
       </div>
 
       <!-- PDF Viewer -->
-      <div class="flex-1" *ngIf="pdfSrc && !loading && !error">
-        <ngx-extended-pdf-viewer
-          [src]="pdfSrc"
-          [height]="'calc(100vh - 64px)'"
-          [showToolbar]="true"
-          [showSidebarButton]="true"
-          [showFindButton]="true"
-          [showPagingButtons]="true"
-          [showZoomButtons]="true"
-          [showPresentationModeButton]="true"
-          [showOpenFileButton]="false"
-          [showPrintButton]="true"
-          [showDownloadButton]="true"
-          [showSecondaryToolbarButton]="true"
-          [showRotateButton]="true"
-          [showHandToolButton]="true"
-          [showPropertiesButton]="true"
-          [zoom]="'auto'"
-          [textLayer]="true"
-          [showBorders]="false"
-          assetsFolder="assets"
-          (pdfLoaded)="onPdfLoaded($event)"
-          (pdfLoadingFailed)="onPdfLoadingFailed($event)">
-        </ngx-extended-pdf-viewer>
-      </div>
+      @if (pdfSrc && !loading && !error) {
+        <div class="flex-1">
+          <ngx-extended-pdf-viewer
+            [src]="pdfSrc"
+            [height]="'calc(100vh - 96px)'"
+            [showToolbar]="true"
+            [showSidebarButton]="true"
+            [showFindButton]="true"
+            [showPagingButtons]="true"
+            [showZoomButtons]="true"
+            [showPresentationModeButton]="true"
+            [showOpenFileButton]="false"
+            [showPrintButton]="true"
+            [showDownloadButton]="true"
+            [showSecondaryToolbarButton]="true"
+            [showRotateButton]="true"
+            [showHandToolButton]="true"
+            [handTool]="false"
+            [showPropertiesButton]="true"
+            [zoom]="'auto'"
+            [textLayer]="true"
+            [showBorders]="false"
+            (pdfLoaded)="onPdfLoaded($event)"
+            (pdfLoadingFailed)="onPdfLoadingFailed($event)"
+          >
+          </ngx-extended-pdf-viewer>
+        </div>
+      }
 
       <!-- Error State -->
-      <div class="flex items-center justify-center h-96" *ngIf="error || (!pdfSrc && !loading)">
-        <div class="text-center">
-          <div class="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 class="text-xl font-semibold text-gray-900 mb-2">
-            {{ error || 'PDF not found' }}
-          </h2>
-          <p class="text-gray-600 mb-4">
-            {{ error ? 'There was an error loading the PDF file.' : 'The requested PDF could not be loaded.' }}
-          </p>
-          <button 
-            (click)="goBack()" 
-            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Go Back
-          </button>
+      @if (error || (!pdfSrc && !loading)) {
+        <div class="flex items-center justify-center h-96">
+          <div class="text-center">
+            <div class="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-2">
+              {{ error || 'PDF not found' }}
+            </h2>
+            <p class="text-gray-600 mb-4">
+              {{ error ? 'There was an error loading the PDF file.' : 'The requested PDF could not be loaded.' }}
+            </p>
+            <button (click)="goBack()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">Go Back</button>
+          </div>
         </div>
-      </div>
+      }
 
       <!-- Loading State -->
-      <div class="flex items-center justify-center h-96" *ngIf="loading">
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p class="text-gray-600">Loading PDF...</p>
+      @if (loading) {
+        <div class="flex items-center justify-center h-96">
+          <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p class="text-gray-600">Loading PDF...</p>
+          </div>
         </div>
-      </div>
+      }
     </div>
   `
 })
@@ -113,15 +112,15 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
     try {
       this.loading = true;
       this.error = null;
-      
+
       this.pdfDocument = await this.pdfService.getPdfById(id);
-      
+
       if (this.pdfDocument) {
         // Clean up previous blob URL if it exists
         if (this.pdfSrc) {
           URL.revokeObjectURL(this.pdfSrc);
         }
-        
+
         this.pdfSrc = this.pdfService.createBlobUrl(this.pdfDocument.file);
         console.log('PDF loaded successfully:', this.pdfDocument.name);
       } else {
@@ -175,4 +174,4 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
       URL.revokeObjectURL(this.pdfSrc);
     }
   }
-} 
+}
