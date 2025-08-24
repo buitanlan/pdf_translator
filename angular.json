@@ -32,6 +32,11 @@
                                 "glob": "**/*",
                                 "input": "node_modules/ngx-extended-pdf-viewer/assets/",
                                 "output": "assets"
+                            },
+                            {
+                                "glob": "**/*",
+                                "input": "node_modules/ngx-extended-pdf-viewer/assets/",
+                                "output": "assets/assets"
                             }
                         ],
                         "styles": [
@@ -101,6 +106,11 @@
                                 "glob": "**/*",
                                 "input": "node_modules/ngx-extended-pdf-viewer/assets/",
                                 "output": "assets"
+                            },
+                            {
+                                "glob": "**/*",
+                                "input": "node_modules/ngx-extended-pdf-viewer/assets/",
+                                "output": "assets/assets"
                             }
                         ],
                         "styles": [
