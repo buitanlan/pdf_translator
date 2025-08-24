@@ -28,7 +28,7 @@ FROM nginx:alpine3.22 AS production-stage
 RUN apk add --no-cache curl
 
 # Copy built application from build stage
-COPY --from=build-stage /app/dist/pdf-translator /usr/share/nginx/html
+COPY --from=build-stage /app/dist/pdf-translator/browser /usr/share/nginx/html
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -37,4 +37,4 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 # Start nginx
-CMD ["nginx", "-g", "daemon off;"] 
+CMD ["nginx", "-g", "daemon off;"]
