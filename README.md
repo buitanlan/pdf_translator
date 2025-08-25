@@ -19,17 +19,20 @@ A modern Angular 20 application that uses PDF.js to display and interact with PD
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd pdf-translator
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Start the development server:
+
 ```bash
 npm start
 ```
@@ -40,10 +43,10 @@ npm start
 
 1. **Upload a PDF**: Click the "Browse Files" button or drag and drop a PDF file
 2. **Navigate Pages**: Use the "Previous" and "Next" buttons to move between pages
-3. **Zoom Controls**: 
-   - Click "Zoom In" to increase the scale
-   - Click "Zoom Out" to decrease the scale
-   - Click "Reset Zoom" to return to the original size
+3. **Zoom Controls**:
+    - Click "Zoom In" to increase the scale
+    - Click "Zoom Out" to decrease the scale
+    - Click "Reset Zoom" to return to the original size
 4. **View Page Info**: The current page number and total pages are displayed in the top right
 
 ## Project Structure
@@ -89,6 +92,7 @@ The built files will be in the `dist/pdf-translator` directory.
 ## Browser Support
 
 This application works in all modern browsers that support:
+
 - ES2022 features
 - Canvas API
 - File API
@@ -109,17 +113,21 @@ This project is open source and available under the MIT License.
 ## Troubleshooting
 
 ### PDF.js Worker Issues
+
 If you encounter issues with PDF.js workers, ensure that:
+
 1. The PDF.js worker files are properly copied to the assets folder
 2. The worker path in the component is correct
 3. Your server is configured to serve static assets
 
 ### File Upload Issues
+
 - Ensure the file is a valid PDF
 - Check that the file size is reasonable (large files may take time to load)
 - Verify that your browser supports the File API
 
 ### Performance Issues
+
 - Large PDF files may take time to load and render
 - Consider implementing lazy loading for multi-page documents
 - Use appropriate zoom levels for better performance 

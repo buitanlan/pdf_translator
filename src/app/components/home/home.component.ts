@@ -93,7 +93,8 @@ export class HomeComponent implements OnInit {
   constructor(
     private pdfService: PdfService,
     private router: Router
-  ) {}
+  ) {
+  }
 
   async ngOnInit() {
     await this.loadPdfs();

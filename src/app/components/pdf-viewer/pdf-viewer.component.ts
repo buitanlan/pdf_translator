@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
 import { PdfService } from '../../services/pdf.service';
+import { IndexedDbService } from '../../services/indexeddb.service';
 import { PdfDocument } from '../../models/pdf.interface';
 
 @Component({
@@ -53,6 +54,8 @@ import { PdfDocument } from '../../models/pdf.interface';
             [showBorders]="false"
             (pdfLoaded)="onPdfLoaded($event)"
             (pdfLoadingFailed)="onPdfLoadingFailed($event)"
+            (pageChange)="onPageChange($event)"
+            [page]="currentPage"
           >
           </ngx-extended-pdf-viewer>
         </div>
@@ -91,12 +94,15 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
   pdfSrc: string | null = null;
   loading = true;
   error: string | null = null;
+  currentPage = 1;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private pdfService: PdfService
-  ) {}
+    private pdfService: PdfService,
+    private indexedDbService: IndexedDbService
+  ) {
+  }
 
   async ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -122,6 +128,13 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
         }
 
         this.pdfSrc = this.pdfService.createBlobUrl(this.pdfDocument.file);
+
+        // Load saved current page
+        const savedPage = await this.indexedDbService.getCurrentPage(id);
+        if (savedPage) {
+          this.currentPage = savedPage;
+        }
+
         console.log('PDF loaded successfully:', this.pdfDocument.name);
       } else {
         this.error = 'PDF not found in database';
@@ -143,32 +156,39 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
     this.error = 'Failed to render PDF in viewer';
   }
 
-  async deletePdf() {
-    if (this.pdfDocument && confirm('Are you sure you want to delete this PDF?')) {
+  onPageChange(event: any) {
+    this.currentPage = event;
+    this.saveCurrentPage();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent) {
+    this.saveCurrentPage();
+  }
+
+  private async saveCurrentPage() {
+    if (this.pdfDocument && this.currentPage > 0) {
       try {
-        await this.pdfService.deletePdf(this.pdfDocument.id);
-        console.log('PDF deleted successfully');
-        this.goBack();
+        await this.indexedDbService.saveCurrentPage(this.pdfDocument.id, this.currentPage);
+        console.log('Current page saved:', this.currentPage);
       } catch (error) {
-        console.error('Error deleting PDF:', error);
-        alert('Failed to delete PDF. Please try again.');
+        console.error('Error saving current page:', error);
       }
     }
   }
 
-  goBack() {
+
+
+  async goBack() {
+    await this.saveCurrentPage();
     this.router.navigate(['/']);
   }
 
-  formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
 
   ngOnDestroy() {
+    // Save current page before destroying component
+    this.saveCurrentPage();
+
     // Clean up blob URL to prevent memory leaks
     if (this.pdfSrc) {
       URL.revokeObjectURL(this.pdfSrc);

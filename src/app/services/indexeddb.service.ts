@@ -27,9 +27,9 @@ export class IndexedDbService {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
-          store.createIndex('name', 'name', { unique: false });
-          store.createIndex('uploadDate', 'uploadDate', { unique: false });
+          const store = db.createObjectStore(this.storeName, {keyPath: 'id'});
+          store.createIndex('name', 'name', {unique: false});
+          store.createIndex('uploadDate', 'uploadDate', {unique: false});
         }
       };
     });
@@ -93,6 +93,50 @@ export class IndexedDbService {
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
+    });
+  }
+
+  async saveCurrentPage(pdfId: string, currentPage: number): Promise<void> {
+    if (!this.db) await this.initDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+
+      // First get the current PDF document
+      const getRequest = store.get(pdfId);
+
+      getRequest.onerror = () => reject(getRequest.error);
+      getRequest.onsuccess = () => {
+        const pdf = getRequest.result;
+        if (pdf) {
+          // Update the current page
+          pdf.currentPage = currentPage;
+
+          // Save the updated PDF
+          const putRequest = store.put(pdf);
+          putRequest.onerror = () => reject(putRequest.error);
+          putRequest.onsuccess = () => resolve();
+        } else {
+          reject(new Error('PDF not found'));
+        }
+      };
+    });
+  }
+
+  async getCurrentPage(pdfId: string): Promise<number | null> {
+    if (!this.db) await this.initDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.get(pdfId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const pdf = request.result;
+        resolve(pdf?.currentPage || null);
+      };
     });
   }
 }
