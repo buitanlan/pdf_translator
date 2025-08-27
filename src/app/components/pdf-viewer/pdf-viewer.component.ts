@@ -14,14 +14,14 @@ import { PdfDocument } from '../../models/pdf.interface';
     <div class="min-h-screen bg-gray-100">
       <div class="bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-12">
+          <div class="flex items-center justify-between h-8">
             <div class="flex items-center">
-              <button (click)="goBack()" class="mr-4 p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100">
+              <button (click)="goBack()" class="mr-4 p-1 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
               </button>
-              <h1 class="text-sm sm:text-base font-medium text-gray-900 truncate">
+              <h1 class="text-xs sm:text-sm font-medium text-gray-900 truncate">
                 {{ pdfDocument?.name || 'Loading...' }}
               </h1>
             </div>

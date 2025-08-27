@@ -9,15 +9,28 @@ import { PdfListItem } from '../../models/pdf.interface';
   standalone: true,
   imports: [],
   template: `
-    <div class="min-h-screen bg-gray-50 py-8">
-      <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-8">
-          <h1 class="text-3xl font-bold text-gray-900 mb-4">PDF Translator</h1>
-          <div class="flex justify-center">
-            <label class="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+    <div class="min-h-screen bg-gray-50 py-4">
+      <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16">
+        <!-- Header with Action Buttons -->
+        <div class="flex justify-between items-center mb-8">
+          <h1 class="text-2xl font-bold text-gray-900">PDF Translator</h1>
+          <div class="flex gap-3">
+            <label class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md" title="Upload PDF">
               <input type="file" (change)="onFileSelected($event)" accept=".pdf" class="hidden" />
-              Upload PDF
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+              </svg>
             </label>
+            @if (pdfs.length > 0) {
+              <button 
+                (click)="clearAllPdfs()" 
+                class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md"
+                title="Clear All Books">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+              </button>
+            }
           </div>
         </div>
 
@@ -38,7 +51,7 @@ import { PdfListItem } from '../../models/pdf.interface';
                 </div>
                 <!-- Title Overlay -->
                 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white p-2.5">
-                  <h3 class="text-xs font-medium leading-tight truncate drop-shadow-sm" [title]="pdf.name">
+                  <h3 class="text-[10px] font-medium leading-tight truncate drop-shadow-sm" [title]="pdf.name">
                     {{ pdf.name }}
                   </h3>
                 </div>
@@ -168,6 +181,22 @@ export class HomeComponent implements OnInit {
       } catch (error) {
         console.error('Error deleting PDF:', error);
         alert('Failed to delete PDF. Please try again.');
+      }
+    }
+  }
+
+  async clearAllPdfs() {
+    if (confirm(`Are you sure you want to delete all ${this.pdfs.length} PDFs? This action cannot be undone.`)) {
+      try {
+        // Delete all PDFs one by one
+        for (const pdf of this.pdfs) {
+          await this.pdfService.deletePdf(pdf.id);
+        }
+        await this.loadPdfs();
+        console.log('All PDFs deleted successfully');
+      } catch (error) {
+        console.error('Error deleting all PDFs:', error);
+        alert('Failed to delete some PDFs. Please try again.');
       }
     }
   }
