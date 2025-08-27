@@ -10,7 +10,7 @@ import { PdfListItem } from '../../models/pdf.interface';
   imports: [],
   template: `
     <div class="min-h-screen bg-gray-50 py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <h1 class="text-3xl font-bold text-gray-900 mb-4">PDF Translator</h1>
           <div class="flex justify-center">
@@ -21,7 +21,7 @@ import { PdfListItem } from '../../models/pdf.interface';
           </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-15 gap-6">
           @for (pdf of pdfs; track pdf) {
             <div class="flex flex-col">
               <!-- PDF Thumbnail with Title Overlay -->
@@ -37,16 +37,16 @@ import { PdfListItem } from '../../models/pdf.interface';
                   }
                 </div>
                 <!-- Title Overlay -->
-                <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2">
-                  <h3 class="text-[10px] font-normal leading-tight truncate" [title]="pdf.name">
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white p-2.5">
+                  <h3 class="text-xs font-medium leading-tight truncate drop-shadow-sm" [title]="pdf.name">
                     {{ pdf.name }}
                   </h3>
                 </div>
               </div>
               <!-- File Info -->
-              <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+              <div class="mt-2 flex items-center justify-between text-[10px] text-gray-500">
                 <div class="flex items-center">
-                  <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <svg class="w-2.5 h-2.5 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fill-rule="evenodd"
                       d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
