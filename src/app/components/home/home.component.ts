@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnInit } from '@angular/core';
 
 import { Router } from '@angular/router';
 import { PdfService } from '../../services/pdf.service';
@@ -18,27 +18,60 @@ import { PdfListItem } from '../../models/pdf.interface';
             <label class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md" title="Upload PDF">
               <input type="file" (change)="onFileSelected($event)" accept=".pdf" class="hidden" />
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                <path
+                  fill-rule="evenodd"
+                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                  clip-rule="evenodd"
+                ></path>
               </svg>
             </label>
             @if (pdfs.length > 0) {
-              <button 
-                (click)="clearAllPdfs()" 
-                class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md"
-                title="Clear All Books">
+              <button (click)="clearAllPdfs()" class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md" title="Clear All Books">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                  <path
+                    fill-rule="evenodd"
+                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                    clip-rule="evenodd"
+                  ></path>
                 </svg>
               </button>
             }
           </div>
         </div>
 
+        <!-- PDF Grid with Drag and Drop Reordering -->
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-15 gap-6">
-          @for (pdf of pdfs; track pdf) {
-            <div class="flex flex-col">
+          @for (pdf of pdfs; track pdf.id; let i = $index) {
+            <div
+              class="flex flex-col relative group"
+              [class.opacity-50]="draggedIndex === i"
+              [class.scale-105]="draggedIndex === i"
+              [class.z-10]="draggedIndex === i"
+              draggable="true"
+              (dragstart)="onItemDragStart($event, i)"
+              (dragend)="onItemDragEnd($event)"
+              (dragover)="onItemDragOver($event, i)"
+              (dragenter)="onItemDragEnter($event, i)"
+              (dragleave)="onItemDragLeave($event, i)"
+              (drop)="onItemDrop($event, i)"
+            >
+              <!-- Drag Handle -->
+              <div class="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="bg-black bg-opacity-50 text-white p-1 rounded cursor-move">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M7 2a2 2 0 011 2v12a2 2 0 11-2 0V4a2 2 0 011-2zM11 2a2 2 0 011 2v12a2 2 0 11-2 0V4a2 2 0 011-2z"></path>
+                  </svg>
+                </div>
+              </div>
+
               <!-- PDF Thumbnail with Title Overlay -->
-              <div class="relative bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow aspect-[3/4]" (click)="openPdf(pdf.id)">
+              <div
+                class="relative bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 aspect-[3/4]"
+                [class.shadow-xl]="draggedIndex === i"
+                [class.ring-2]="draggedIndex === i"
+                [class.ring-blue-500]="draggedIndex === i"
+                (click)="openPdf(pdf.id)"
+              >
                 <div class="w-full h-full flex items-center justify-center">
                   @if (pdf.coverImage) {
                     <img [src]="pdf.coverImage" [alt]="pdf.name" class="w-full h-full object-cover" />
@@ -102,20 +135,149 @@ import { PdfListItem } from '../../models/pdf.interface';
 })
 export class HomeComponent implements OnInit {
   pdfs: PdfListItem[] = [];
+  draggedIndex: number | null = null;
+  dragOverIndex: number | null = null;
 
-  constructor(
-    private pdfService: PdfService,
-    private router: Router
-  ) {
-  }
+  pdfService = inject(PdfService);
+  router = inject(Router);
 
   async ngOnInit() {
     await this.loadPdfs();
   }
 
+  // Global drag and drop handlers
+  @HostListener('dragover', ['$event'])
+  onGlobalDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  @HostListener('drop', ['$event'])
+  onGlobalDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  // Item reordering drag and drop handlers
+  onItemDragStart(event: DragEvent, index: number) {
+    this.draggedIndex = index;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', index.toString());
+    }
+  }
+
+  onItemDragEnd(event: DragEvent) {
+    this.draggedIndex = null;
+    this.dragOverIndex = null;
+  }
+
+  onItemDragOver(event: DragEvent, index: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.draggedIndex !== null && this.draggedIndex !== index) {
+      event.dataTransfer!.dropEffect = 'move';
+    }
+  }
+
+  onItemDragEnter(event: DragEvent, index: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.draggedIndex !== null && this.draggedIndex !== index) {
+      this.dragOverIndex = index;
+    }
+  }
+
+  onItemDragLeave(event: DragEvent, index: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.dragOverIndex === index) {
+      this.dragOverIndex = null;
+    }
+  }
+
+  onItemDrop(event: DragEvent, dropIndex: number) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (this.draggedIndex !== null && this.draggedIndex !== dropIndex) {
+      this.reorderPdfs(this.draggedIndex, dropIndex);
+    }
+
+    this.draggedIndex = null;
+    this.dragOverIndex = null;
+  }
+
+  reorderPdfs(fromIndex: number, toIndex: number) {
+    const reorderedPdfs = [...this.pdfs];
+    const [movedItem] = reorderedPdfs.splice(fromIndex, 1);
+    reorderedPdfs.splice(toIndex, 0, movedItem);
+    this.pdfs = reorderedPdfs;
+
+    // Save the new order to storage
+    this.savePdfOrder();
+  }
+
+  async savePdfOrder() {
+    try {
+      // Save the new order to IndexedDB or localStorage
+      // For now, we'll use localStorage as a simple solution
+      const pdfOrder = this.pdfs.map((pdf) => pdf.id);
+      localStorage.setItem('pdfOrder', JSON.stringify(pdfOrder));
+    } catch (error) {
+      console.error('Error saving PDF order:', error);
+    }
+  }
+
+  async loadPdfOrder() {
+    try {
+      const savedOrder = localStorage.getItem('pdfOrder');
+      if (savedOrder) {
+        const orderIds = JSON.parse(savedOrder);
+        const orderedPdfs: PdfListItem[] = [];
+        const unorderedPdfs: PdfListItem[] = [];
+
+        // Separate ordered and unordered PDFs
+        this.pdfs.forEach((pdf) => {
+          const orderIndex = orderIds.indexOf(pdf.id);
+          if (orderIndex !== -1) {
+            orderedPdfs[orderIndex] = pdf;
+          } else {
+            unorderedPdfs.push(pdf);
+          }
+        });
+
+        // Combine ordered PDFs with any new ones at the end
+        this.pdfs = [...orderedPdfs.filter(Boolean), ...unorderedPdfs];
+      }
+    } catch (error) {
+      console.error('Error loading PDF order:', error);
+    }
+  }
+
+  async uploadFile(file: File) {
+    // Validate the PDF file
+    if (!this.pdfService.validatePdfFile(file)) {
+      alert(`Please select a valid PDF file (max 100MB): ${file.name}`);
+      return;
+    }
+
+    try {
+      console.log('Uploading PDF:', file.name, 'Size:', file.size);
+      const id = await this.pdfService.uploadPdf(file);
+      await this.loadPdfs();
+      await this.loadPdfOrder(); // Restore order after loading
+      console.log('PDF uploaded successfully with ID:', id);
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      alert(`Failed to upload PDF: ${file.name}. Please try again.`);
+    }
+  }
+
   async loadPdfs() {
     try {
       this.pdfs = await this.pdfService.getAllPdfs();
+      await this.loadPdfOrder(); // Apply saved order
     } catch (error) {
       console.error('Error loading PDFs:', error);
     }
@@ -125,25 +287,9 @@ export class HomeComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-
-      // Validate the PDF file
-      if (!this.pdfService.validatePdfFile(file)) {
-        alert('Please select a valid PDF file (max 100MB).');
-        return;
-      }
-
-      try {
-        console.log('Uploading PDF:', file.name, 'Size:', file.size);
-        const id = await this.pdfService.uploadPdf(file);
-        await this.loadPdfs();
-        console.log('PDF uploaded successfully with ID:', id);
-
-        // Reset the input
-        input.value = '';
-      } catch (error) {
-        console.error('Error uploading PDF:', error);
-        alert('Failed to upload PDF. Please try again.');
-      }
+      await this.uploadFile(file);
+      // Reset the input
+      input.value = '';
     }
   }
 
@@ -157,18 +303,6 @@ export class HomeComponent implements OnInit {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
-  formatDate(date: Date): string {
-    return new Date(date).toLocaleDateString();
-  }
-
-  getShortName(name: string): string {
-    const nameWithoutExtension = name.replace(/\.pdf$/i, '');
-    if (nameWithoutExtension.length > 25) {
-      return nameWithoutExtension.substring(0, 25) + '...';
-    }
-    return nameWithoutExtension;
   }
 
   async deletePdf(id: string, event: Event) {

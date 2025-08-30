@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { IndexedDbService } from './indexeddb.service';
 import { PdfDocument, PdfListItem } from '../models/pdf.interface';
 
@@ -9,9 +9,7 @@ declare var pdfjsLib: any;
   providedIn: 'root'
 })
 export class PdfService {
-  constructor(private indexedDbService: IndexedDbService) {
-  }
-
+  indexedDbService = inject(IndexedDbService);
   async uploadPdf(file: File): Promise<string> {
     const id = this.generateId();
     const coverImage = await this.generateCoverFromFirstPage(file);
@@ -22,7 +20,7 @@ export class PdfService {
     const pdfDocument: PdfDocument = {
       id,
       name: file.name,
-      file: new File([arrayBuffer], file.name, {type: file.type}),
+      file: new File([arrayBuffer], file.name, { type: file.type }),
       uploadDate: new Date(),
       size: file.size,
       coverImage
@@ -42,7 +40,7 @@ export class PdfService {
       // Ensure the file is properly reconstructed
       if (!(pdfDoc.file instanceof File)) {
         // If it's stored as raw data, reconstruct the File object
-        pdfDoc.file = new File([pdfDoc.file as any], pdfDoc.name, {type: 'application/pdf'});
+        pdfDoc.file = new File([pdfDoc.file as any], pdfDoc.name, { type: 'application/pdf' });
       }
     }
     return pdfDoc;
@@ -64,7 +62,7 @@ export class PdfService {
       }
 
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const page = await pdf.getPage(1); // Get first page
 
       // Create canvas for rendering
@@ -72,9 +70,9 @@ export class PdfService {
       const context = canvas.getContext('2d');
 
       // Set desired dimensions for thumbnail
-      const viewport = page.getViewport({scale: 1});
+      const viewport = page.getViewport({ scale: 1 });
       const scale = Math.min(200 / viewport.width, 280 / viewport.height);
-      const scaledViewport = page.getViewport({scale});
+      const scaledViewport = page.getViewport({ scale });
 
       canvas.width = scaledViewport.width;
       canvas.height = scaledViewport.height;
@@ -140,7 +138,7 @@ export class PdfService {
     }
 
     try {
-      const blob = new Blob([file], {type: 'application/pdf'});
+      const blob = new Blob([file], { type: 'application/pdf' });
       return URL.createObjectURL(blob);
     } catch (error) {
       console.error('Error creating blob URL:', error);

@@ -27,9 +27,9 @@ export class IndexedDbService {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, {keyPath: 'id'});
-          store.createIndex('name', 'name', {unique: false});
-          store.createIndex('uploadDate', 'uploadDate', {unique: false});
+          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store.createIndex('name', 'name', { unique: false });
+          store.createIndex('uploadDate', 'uploadDate', { unique: false });
         }
       };
     });

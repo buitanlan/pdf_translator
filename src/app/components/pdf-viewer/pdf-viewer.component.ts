@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, OnInit } from '@angular/core';
 
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
@@ -96,13 +96,10 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
   error: string | null = null;
   currentPage = 1;
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private pdfService: PdfService,
-    private indexedDbService: IndexedDbService
-  ) {
-  }
+  route = inject(ActivatedRoute);
+  router = inject(Router);
+  pdfService = inject(PdfService);
+  indexedDbService = inject(IndexedDbService);
 
   async ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
@@ -177,17 +174,14 @@ export class PdfViewerComponent implements OnInit, OnDestroy {
     }
   }
 
-
-
   async goBack() {
     await this.saveCurrentPage();
-    this.router.navigate(['/']);
+    void this.router.navigate(['/']);
   }
-
 
   ngOnDestroy() {
     // Save current page before destroying component
-    this.saveCurrentPage();
+    void this.saveCurrentPage();
 
     // Clean up blob URL to prevent memory leaks
     if (this.pdfSrc) {
