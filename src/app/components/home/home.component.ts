@@ -9,22 +9,40 @@ import { PdfListItem } from '../../models/pdf.interface';
   standalone: true,
   imports: [],
   template: `
-    <div class="min-h-screen bg-gray-50 py-4">
+    <div class="min-h-screen bg-gray-50 py-4 relative">
+      <!-- Drag Overlay -->
+      @if (isDragOver) {
+        <div class="fixed inset-0 bg-blue-500 bg-opacity-20 border-4 border-dashed border-blue-500 z-50 flex items-center justify-center">
+          <div class="bg-white rounded-lg p-8 text-center shadow-xl">
+            <svg class="mx-auto h-16 w-16 text-blue-500 mb-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                clip-rule="evenodd"
+              ></path>
+            </svg>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Drop PDF files here</h3>
+            <p class="text-gray-600">Release to upload your PDF files</p>
+          </div>
+        </div>
+      }
+
       <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16">
         <!-- Header with Action Buttons -->
         <div class="flex justify-between items-center mb-8">
           <h1 class="text-2xl font-bold text-gray-900">PDF Translator</h1>
           <div class="flex gap-3">
-            <label class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md" title="Upload PDF">
-              <input type="file" (change)="onFileSelected($event)" accept=".pdf" class="hidden" />
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                  clip-rule="evenodd"
-                ></path>
-              </svg>
-            </label>
+            <!-- Upload Progress Bar -->
+            @if (isUploading && totalFiles > 1) {
+              <div class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <div class="text-sm text-blue-700 font-medium">Uploading {{ uploadedFiles }}/{{ totalFiles }}</div>
+                <div class="w-32 bg-blue-200 rounded-full h-2">
+                  <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" [style.width.%]="uploadProgress"></div>
+                </div>
+                <div class="text-sm text-blue-700 font-medium">{{ uploadProgress.toFixed(0) }}%</div>
+              </div>
+            }
+
             @if (pdfs.length > 0) {
               <button (click)="clearAllPdfs()" class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md" title="Clear All Books">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -36,6 +54,27 @@ import { PdfListItem } from '../../models/pdf.interface';
                 </svg>
               </button>
             }
+
+            <label
+              class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              [class.disabled]="isUploading"
+              [title]="isUploading ? 'Uploading...' : 'Upload PDFs'"
+            >
+              <input type="file" (change)="onFileSelected($event)" accept=".pdf" multiple class="hidden" [disabled]="isUploading" />
+              @if (isUploading) {
+                <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+              } @else {
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fill-rule="evenodd"
+                    d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                    clip-rule="evenodd"
+                  ></path>
+                </svg>
+              }
+            </label>
           </div>
         </div>
 
@@ -126,7 +165,8 @@ import { PdfListItem } from '../../models/pdf.interface';
               ></path>
             </svg>
             <h3 class="mt-2 text-sm font-medium text-gray-900">No PDFs uploaded</h3>
-            <p class="mt-1 text-sm text-gray-500">Get started by uploading your first PDF.</p>
+            <p class="mt-1 text-sm text-gray-500">Get started by uploading your first PDF. You can select multiple files at once!</p>
+            <p class="mt-1 text-xs text-gray-400">Drag and drop PDF files here or click the upload button above.</p>
           </div>
         }
       </div>
@@ -137,6 +177,11 @@ export class HomeComponent implements OnInit {
   pdfs: PdfListItem[] = [];
   draggedIndex: number | null = null;
   dragOverIndex: number | null = null;
+  isDragOver = false;
+  isUploading = false;
+  uploadProgress = 0;
+  totalFiles = 0;
+  uploadedFiles = 0;
 
   pdfService = inject(PdfService);
   router = inject(Router);
@@ -150,12 +195,45 @@ export class HomeComponent implements OnInit {
   onGlobalDragOver(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
+
+    // Add visual feedback for drag over
+    if (event.dataTransfer?.types.includes('Files')) {
+      event.dataTransfer.dropEffect = 'copy';
+      this.isDragOver = true;
+    }
+  }
+
+  @HostListener('dragenter', ['$event'])
+  onGlobalDragEnter(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.dataTransfer?.types.includes('Files')) {
+      this.isDragOver = true;
+    }
+  }
+
+  @HostListener('dragleave', ['$event'])
+  onGlobalDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Only set isDragOver to false if we're leaving the entire component
+    if (!(event.currentTarget as Element)?.contains(event.relatedTarget as Node)) {
+      this.isDragOver = false;
+    }
   }
 
   @HostListener('drop', ['$event'])
   onGlobalDrop(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
+    this.isDragOver = false;
+
+    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      const files = Array.from(event.dataTransfer.files);
+      this.uploadMultipleFiles(files);
+    }
   }
 
   // Item reordering drag and drop handlers
@@ -285,11 +363,79 @@ export class HomeComponent implements OnInit {
 
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      await this.uploadFile(file);
+    if (input.files && input.files.length > 0) {
+      const files = Array.from(input.files);
+      await this.uploadMultipleFiles(files);
       // Reset the input
       input.value = '';
+    }
+  }
+
+  async uploadMultipleFiles(files: File[]) {
+    const validFiles = files.filter((file) => this.pdfService.validatePdfFile(file));
+    const invalidFiles = files.filter((file) => !this.pdfService.validatePdfFile(file));
+
+    if (invalidFiles.length > 0) {
+      const invalidFileNames = invalidFiles.map((f) => f.name).join(', ');
+      alert(`The following files are not valid PDFs or exceed 100MB: ${invalidFileNames}`);
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    if (validFiles.length === 1) {
+      // Single file upload - use existing method
+      await this.uploadFile(validFiles[0]);
+      return;
+    }
+
+    // Multiple files - show progress and upload in batch
+    console.log(`Starting batch upload of ${validFiles.length} PDFs`);
+    this.isUploading = true;
+    this.totalFiles = validFiles.length;
+    this.uploadedFiles = 0;
+    this.uploadProgress = 0;
+
+    const uploadPromises = validFiles.map(async (file, index) => {
+      try {
+        console.log(`Uploading PDF ${index + 1}/${validFiles.length}:`, file.name, 'Size:', file.size);
+        const id = await this.pdfService.uploadPdf(file);
+        console.log(`PDF ${index + 1} uploaded successfully with ID:`, id);
+        this.uploadedFiles++;
+        this.uploadProgress = (this.uploadedFiles / this.totalFiles) * 100;
+        return { success: true, file: file.name, id };
+      } catch (error) {
+        console.error(`Error uploading PDF ${index + 1}:`, error);
+        this.uploadedFiles++;
+        this.uploadProgress = (this.uploadedFiles / this.totalFiles) * 100;
+        return { success: false, file: file.name, error };
+      }
+    });
+
+    try {
+      const results = await Promise.all(uploadPromises);
+      const successful = results.filter((r) => r.success);
+      const failed = results.filter((r) => !r.success);
+
+      if (successful.length > 0) {
+        await this.loadPdfs();
+        await this.loadPdfOrder();
+        console.log(`Batch upload completed: ${successful.length} successful, ${failed.length} failed`);
+      }
+
+      if (failed.length > 0) {
+        const failedFileNames = failed.map((f) => f.file).join(', ');
+        alert(`Failed to upload some files: ${failedFileNames}. Please try uploading them individually.`);
+      }
+    } catch (error) {
+      console.error('Error during batch upload:', error);
+      alert('An error occurred during batch upload. Please try again.');
+    } finally {
+      this.isUploading = false;
+      this.uploadProgress = 0;
+      this.totalFiles = 0;
+      this.uploadedFiles = 0;
     }
   }
 
