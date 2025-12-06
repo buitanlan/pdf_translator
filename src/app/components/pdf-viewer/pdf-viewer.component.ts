@@ -1,39 +1,65 @@
-import { Component, HostListener, inject, OnDestroy, OnInit } from '@angular/core';
-
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerModule, PdfLoadedEvent } from 'ngx-extended-pdf-viewer';
 import { PdfService } from '../../services/pdf.service';
 import { IndexedDbService } from '../../services/indexeddb.service';
 import { PdfDocument } from '../../models/pdf.interface';
 
 @Component({
   selector: 'app-pdf-viewer',
-  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgxExtendedPdfViewerModule],
+  host: {
+    '(window:beforeunload)': 'onBeforeUnload()',
+  },
   template: `
     <div class="min-h-screen bg-gray-100">
-      <div class="bg-white shadow-sm border-b">
+      <header class="bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-8">
             <div class="flex items-center">
-              <button (click)="goBack()" class="mr-4 p-1 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              <button
+                type="button"
+                (click)="goBack()"
+                class="mr-4 p-1 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Go back to PDF list"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
               </button>
               <h1 class="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                {{ pdfDocument?.name || 'Loading...' }}
+                {{ documentName() }}
               </h1>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <!-- PDF Viewer -->
-      @if (pdfSrc && !loading && !error) {
-        <div class="flex-1">
+      @if (pdfSrc() && !loading() && !error()) {
+        <main class="flex-1">
           <ngx-extended-pdf-viewer
-            [src]="pdfSrc"
+            [src]="pdfSrc()!"
             [height]="'calc(100vh - 96px)'"
             [showToolbar]="true"
             [showSidebarButton]="true"
@@ -55,137 +81,159 @@ import { PdfDocument } from '../../models/pdf.interface';
             (pdfLoaded)="onPdfLoaded($event)"
             (pdfLoadingFailed)="onPdfLoadingFailed($event)"
             (pageChange)="onPageChange($event)"
-            [page]="currentPage"
-          >
-          </ngx-extended-pdf-viewer>
-        </div>
+            [page]="currentPage()"
+          />
+        </main>
       }
 
       <!-- Error State -->
-      @if (error || (!pdfSrc && !loading)) {
-        <div class="flex items-center justify-center h-96">
+      @if (error() || (!pdfSrc() && !loading())) {
+        <main class="flex items-center justify-center h-96" role="alert">
           <div class="text-center">
-            <div class="text-red-500 text-6xl mb-4">⚠️</div>
+            <div class="text-red-500 text-6xl mb-4" aria-hidden="true">⚠️</div>
             <h2 class="text-xl font-semibold text-gray-900 mb-2">
-              {{ error || 'PDF not found' }}
+              {{ error() || 'PDF not found' }}
             </h2>
             <p class="text-gray-600 mb-4">
-              {{ error ? 'There was an error loading the PDF file.' : 'The requested PDF could not be loaded.' }}
+              {{
+                error()
+                  ? 'There was an error loading the PDF file.'
+                  : 'The requested PDF could not be loaded.'
+              }}
             </p>
-            <button (click)="goBack()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">Go Back</button>
+            <button
+              type="button"
+              (click)="goBack()"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Go Back
+            </button>
           </div>
-        </div>
+        </main>
       }
 
       <!-- Loading State -->
-      @if (loading) {
-        <div class="flex items-center justify-center h-96">
+      @if (loading()) {
+        <main class="flex items-center justify-center h-96" role="status" aria-live="polite">
           <div class="text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <div
+              class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"
+              aria-hidden="true"
+            ></div>
             <p class="text-gray-600">Loading PDF...</p>
           </div>
-        </div>
+        </main>
       }
     </div>
-  `
+  `,
 })
-export class PdfViewerComponent implements OnInit, OnDestroy {
-  pdfDocument: PdfDocument | null = null;
-  pdfSrc: string | null = null;
-  loading = true;
-  error: string | null = null;
-  currentPage = 1;
+export class PdfViewerComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly pdfService = inject(PdfService);
+  private readonly indexedDbService = inject(IndexedDbService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  route = inject(ActivatedRoute);
-  router = inject(Router);
-  pdfService = inject(PdfService);
-  indexedDbService = inject(IndexedDbService);
+  // State signals
+  readonly pdfDocument = signal<PdfDocument | null>(null);
+  readonly pdfSrc = signal<string | null>(null);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly currentPage = signal(1);
 
-  async ngOnInit() {
+  // Computed signals
+  readonly documentName = computed(() => this.pdfDocument()?.name ?? 'Loading...');
+
+  constructor() {
+    // Clean up blob URL when component is destroyed
+    this.destroyRef.onDestroy(() => {
+      void this.saveCurrentPage();
+      const src = this.pdfSrc();
+      if (src) {
+        URL.revokeObjectURL(src);
+      }
+    });
+  }
+
+  async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       await this.loadPdf(id);
     } else {
-      this.loading = false;
-      this.error = 'No PDF ID provided';
+      this.loading.set(false);
+      this.error.set('No PDF ID provided');
     }
   }
 
-  async loadPdf(id: string) {
+  private async loadPdf(id: string): Promise<void> {
     try {
-      this.loading = true;
-      this.error = null;
+      this.loading.set(true);
+      this.error.set(null);
 
-      this.pdfDocument = await this.pdfService.getPdfById(id);
+      const pdfDoc = await this.pdfService.getPdfById(id);
 
-      if (this.pdfDocument) {
+      if (pdfDoc) {
         // Clean up previous blob URL if it exists
-        if (this.pdfSrc) {
-          URL.revokeObjectURL(this.pdfSrc);
+        const previousSrc = this.pdfSrc();
+        if (previousSrc) {
+          URL.revokeObjectURL(previousSrc);
         }
 
-        this.pdfSrc = this.pdfService.createBlobUrl(this.pdfDocument.file);
+        this.pdfDocument.set(pdfDoc);
+        this.pdfSrc.set(this.pdfService.createBlobUrl(pdfDoc.file));
 
         // Load saved current page
         const savedPage = await this.indexedDbService.getCurrentPage(id);
         if (savedPage) {
-          this.currentPage = savedPage;
+          this.currentPage.set(savedPage);
         }
 
-        console.log('PDF loaded successfully:', this.pdfDocument.name);
+        console.log('PDF loaded successfully:', pdfDoc.name);
       } else {
-        this.error = 'PDF not found in database';
+        this.error.set('PDF not found in database');
       }
-    } catch (error) {
-      console.error('Error loading PDF:', error);
-      this.error = 'Failed to load PDF from database';
+    } catch (err) {
+      console.error('Error loading PDF:', err);
+      this.error.set('Failed to load PDF from database');
     } finally {
-      this.loading = false;
+      this.loading.set(false);
     }
   }
 
-  onPdfLoaded(event: any) {
+  onPdfLoaded(event: PdfLoadedEvent): void {
     console.log('PDF loaded in viewer:', event);
   }
 
-  onPdfLoadingFailed(event: any) {
-    console.error('PDF loading failed:', event);
-    this.error = 'Failed to render PDF in viewer';
+  onPdfLoadingFailed(event: Error): void {
+    console.error('PDF loading failed:', event.message);
+    this.error.set('Failed to render PDF in viewer');
   }
 
-  onPageChange(event: any) {
-    this.currentPage = event;
-    this.saveCurrentPage();
+  onPageChange(page: number): void {
+    this.currentPage.set(page);
+    void this.saveCurrentPage();
   }
 
-  @HostListener('window:beforeunload', ['$event'])
-  onBeforeUnload(event: BeforeUnloadEvent) {
-    this.saveCurrentPage();
+  onBeforeUnload(): void {
+    void this.saveCurrentPage();
   }
 
-  private async saveCurrentPage() {
-    if (this.pdfDocument && this.currentPage > 0) {
+  private async saveCurrentPage(): Promise<void> {
+    const doc = this.pdfDocument();
+    const page = this.currentPage();
+
+    if (doc && page > 0) {
       try {
-        await this.indexedDbService.saveCurrentPage(this.pdfDocument.id, this.currentPage);
-        console.log('Current page saved:', this.currentPage);
-      } catch (error) {
-        console.error('Error saving current page:', error);
+        await this.indexedDbService.saveCurrentPage(doc.id, page);
+        console.log('Current page saved:', page);
+      } catch (err) {
+        console.error('Error saving current page:', err);
       }
     }
   }
 
-  async goBack() {
+  async goBack(): Promise<void> {
     await this.saveCurrentPage();
     void this.router.navigate(['/']);
-  }
-
-  ngOnDestroy() {
-    // Save current page before destroying component
-    void this.saveCurrentPage();
-
-    // Clean up blob URL to prevent memory leaks
-    if (this.pdfSrc) {
-      URL.revokeObjectURL(this.pdfSrc);
-    }
   }
 }

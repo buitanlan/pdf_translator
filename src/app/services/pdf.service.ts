@@ -2,14 +2,40 @@ import { inject, Injectable } from '@angular/core';
 import { IndexedDbService } from './indexeddb.service';
 import { PdfDocument, PdfListItem } from '../models/pdf.interface';
 
-// Import PDF.js types
-declare var pdfjsLib: any;
+// PDF.js types
+interface PdfJsDocument {
+  getPage(pageNumber: number): Promise<PdfJsPage>;
+}
+
+interface PdfJsPage {
+  getViewport(options: { scale: number }): PdfJsViewport;
+  render(options: { canvasContext: CanvasRenderingContext2D | null; viewport: PdfJsViewport }): {
+    promise: Promise<void>;
+  };
+}
+
+interface PdfJsViewport {
+  width: number;
+  height: number;
+}
+
+interface PdfJsLib {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfJsDocument> };
+}
+
+declare global {
+  interface Window {
+    pdfjsLib?: PdfJsLib;
+  }
+}
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class PdfService {
-  indexedDbService = inject(IndexedDbService);
+  private readonly indexedDbService = inject(IndexedDbService);
+
   async uploadPdf(file: File): Promise<string> {
     const id = this.generateId();
     const coverImage = await this.generateCoverFromFirstPage(file);
@@ -23,7 +49,7 @@ export class PdfService {
       file: new File([arrayBuffer], file.name, { type: file.type }),
       uploadDate: new Date(),
       size: file.size,
-      coverImage
+      coverImage,
     };
 
     await this.indexedDbService.savePdf(pdfDocument);
@@ -36,11 +62,11 @@ export class PdfService {
 
   async getPdfById(id: string): Promise<PdfDocument | null> {
     const pdfDoc = await this.indexedDbService.getPdfById(id);
-    if (pdfDoc && pdfDoc.file) {
+    if (pdfDoc?.file) {
       // Ensure the file is properly reconstructed
       if (!(pdfDoc.file instanceof File)) {
         // If it's stored as raw data, reconstruct the File object
-        pdfDoc.file = new File([pdfDoc.file as any], pdfDoc.name, { type: 'application/pdf' });
+        pdfDoc.file = new File([pdfDoc.file as Blob], pdfDoc.name, { type: 'application/pdf' });
       }
     }
     return pdfDoc;
@@ -51,19 +77,24 @@ export class PdfService {
   }
 
   private generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
   }
 
   private async generateCoverFromFirstPage(file: File): Promise<string> {
     try {
       // Load PDF.js if not already loaded
-      if (typeof pdfjsLib === 'undefined') {
+      if (typeof window.pdfjsLib === 'undefined') {
         await this.loadPdfJs();
+      }
+
+      const pdfjsLib = window.pdfjsLib;
+      if (!pdfjsLib) {
+        throw new Error('PDF.js not loaded');
       }
 
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1); // Get first page
+      const page = await pdf.getPage(1);
 
       // Create canvas for rendering
       const canvas = document.createElement('canvas');
@@ -80,7 +111,7 @@ export class PdfService {
       // Render PDF page to canvas
       await page.render({
         canvasContext: context,
-        viewport: scaledViewport
+        viewport: scaledViewport,
       }).promise;
 
       // Convert canvas to base64 image
@@ -88,13 +119,13 @@ export class PdfService {
     } catch (error) {
       console.error('Error generating cover from PDF:', error);
       // Fallback to placeholder if PDF rendering fails
-      return await this.createPlaceholderImage(file.name);
+      return this.createPlaceholderImage(file.name);
     }
   }
 
   private async loadPdfJs(): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (typeof pdfjsLib !== 'undefined') {
+      if (typeof window.pdfjsLib !== 'undefined') {
         resolve();
         return;
       }
@@ -102,20 +133,29 @@ export class PdfService {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
       script.onload = () => {
-        // Set worker path
-        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        resolve();
+        const pdfjsLib = window.pdfjsLib;
+        if (pdfjsLib) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          resolve();
+        } else {
+          reject(new Error('PDF.js not available after script load'));
+        }
       };
       script.onerror = () => reject(new Error('Failed to load PDF.js'));
       document.head.appendChild(script);
     });
   }
 
-  private async createPlaceholderImage(fileName: string): Promise<string> {
+  private createPlaceholderImage(fileName: string): string {
     const canvas = document.createElement('canvas');
     canvas.width = 200;
     canvas.height = 280;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      return '';
+    }
 
     // Create a simple placeholder
     ctx.fillStyle = '#dc2626'; // Red background
@@ -146,7 +186,6 @@ export class PdfService {
     }
   }
 
-  // Helper method to validate PDF file
   validatePdfFile(file: File): boolean {
     if (!file) return false;
     if (file.type !== 'application/pdf') return false;

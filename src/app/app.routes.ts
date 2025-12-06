@@ -1,9 +1,14 @@
 import { Routes } from '@angular/router';
-import { HomeComponent } from './components/home/home.component';
-import { PdfViewerComponent } from './components/pdf-viewer/pdf-viewer.component';
 
 export const routes: Routes = [
-  { path: '', component: HomeComponent },
-  { path: 'viewer/:id', component: PdfViewerComponent },
-  { path: '**', redirectTo: '' }
+  {
+    path: '',
+    loadComponent: () => import('./components/home/home.component').then((m) => m.HomeComponent),
+  },
+  {
+    path: 'viewer/:id',
+    loadComponent: () =>
+      import('./components/pdf-viewer/pdf-viewer.component').then((m) => m.PdfViewerComponent),
+  },
+  { path: '**', redirectTo: '' },
 ];

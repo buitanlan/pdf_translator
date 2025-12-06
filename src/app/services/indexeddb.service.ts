@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { PdfDocument, PdfListItem } from '../models/pdf.interface';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class IndexedDbService {
   private dbName = 'PdfTranslatorDB';
@@ -63,7 +63,7 @@ export class IndexedDbService {
           name: pdf.name,
           uploadDate: pdf.uploadDate,
           size: pdf.size,
-          coverImage: pdf.coverImage
+          coverImage: pdf.coverImage,
         }));
         resolve(pdfs);
       };
