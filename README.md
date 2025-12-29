@@ -1,6 +1,6 @@
 # PDF Translator - Angular 20 PDF Viewer
 
-A modern Angular 20 application that uses PDF.js to display and interact with PDF files in the browser.
+A modern Angular 21 application that uses PDF.js to display and interact with PDF files in the browser.
 
 ## Features
 
@@ -9,7 +9,7 @@ A modern Angular 20 application that uses PDF.js to display and interact with PD
 - 📖 **Page Navigation**: Navigate between pages with previous/next buttons
 - 🎨 **Modern UI**: Clean, responsive design with smooth animations
 - ⚡ **Fast Rendering**: Uses PDF.js for efficient PDF rendering
-- 🔧 **Angular 20**: Built with the latest Angular framework using standalone components
+- 🔧 **Angular 21**: Built with the latest Angular framework using standalone components
 
 ## Prerequisites
 
@@ -44,9 +44,9 @@ npm start
 1. **Upload a PDF**: Click the "Browse Files" button or drag and drop a PDF file
 2. **Navigate Pages**: Use the "Previous" and "Next" buttons to move between pages
 3. **Zoom Controls**:
-    - Click "Zoom In" to increase the scale
-    - Click "Zoom Out" to decrease the scale
-    - Click "Reset Zoom" to return to the original size
+   - Click "Zoom In" to increase the scale
+   - Click "Zoom Out" to decrease the scale
+   - Click "Reset Zoom" to return to the original size
 4. **View Page Info**: The current page number and total pages are displayed in the top right
 
 ## Project Structure
@@ -67,7 +67,7 @@ src/
 
 ## Technologies Used
 
-- **Angular 20**: Modern web framework with standalone components
+- **Angular 21**: Modern web framework with standalone components
 - **PDF.js**: Mozilla's PDF rendering library
 - **TypeScript**: Type-safe JavaScript
 - **CSS3**: Modern styling with flexbox and grid
@@ -130,4 +130,4 @@ If you encounter issues with PDF.js workers, ensure that:
 
 - Large PDF files may take time to load and render
 - Consider implementing lazy loading for multi-page documents
-- Use appropriate zoom levels for better performance 
+- Use appropriate zoom levels for better performance
