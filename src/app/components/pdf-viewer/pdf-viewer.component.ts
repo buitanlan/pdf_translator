@@ -15,7 +15,6 @@ import { PdfDocument } from '../../models/pdf.interface';
 
 @Component({
   selector: 'app-pdf-viewer',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgxExtendedPdfViewerModule],
   host: {
     '(window:beforeunload)': 'onBeforeUnload()',
@@ -209,9 +208,11 @@ export class PdfViewerComponent implements OnInit {
     this.error.set('Failed to render PDF in viewer');
   }
 
-  onPageChange(page: number): void {
-    this.currentPage.set(page);
-    void this.saveCurrentPage();
+  onPageChange(page: number | undefined): void {
+    if (page) {
+      this.currentPage.set(page);
+      void this.saveCurrentPage();
+    }
   }
 
   onBeforeUnload(): void {

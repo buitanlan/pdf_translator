@@ -12,7 +12,6 @@ import { PdfListItem } from '../../models/pdf.interface';
 
 @Component({
   selector: 'app-home',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(dragover)': 'onGlobalDragOver($event)',
     '(dragenter)': 'onGlobalDragEnter($event)',
