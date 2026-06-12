@@ -14,28 +14,10 @@
       "installMode": "lazy",
       "updateMode": "prefetch",
       "resources": {
-        "files": ["/assets/**", "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"]
-      }
-    }
-  ],
-  "dataGroups": [
-    {
-      "name": "api",
-      "urls": ["/api/**"],
-      "cacheConfig": {
-        "strategy": "freshness",
-        "maxSize": 100,
-        "maxAge": "1h",
-        "timeout": "5s"
-      }
-    },
-    {
-      "name": "indexeddb",
-      "urls": ["/**"],
-      "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 1000,
-        "maxAge": "30d"
+        "files": [
+          "/assets/**",
+          "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2|mjs|ftl|wasm|bcmap|json|webmanifest)"
+        ]
       }
     }
   ]
