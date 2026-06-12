@@ -7,16 +7,16 @@ metadata:
     app: pdf-translator
   annotations:
     # K3s/Traefik specific annotations
-    kubernetes.io/ingress.class: "traefik"
+    kubernetes.io/ingress.class: 'traefik'
     traefik.ingress.kubernetes.io/router.entrypoints: web
     # Optional: Enable HTTPS redirect
     # traefik.ingress.kubernetes.io/redirect-entry-point: https
     # Optional: Enable Let's Encrypt SSL
     # cert-manager.io/cluster-issuer: "letsencrypt-prod"
     # Nginx specific settings for proper file serving
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: '50m'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
 spec:
   rules:
     - host: pdf-translator.local # Change this to your domain

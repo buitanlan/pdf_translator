@@ -6,7 +6,7 @@ services:
       target: production-stage
     container_name: pdf-translator-app
     ports:
-      - "8888:80"
+      - '8888:80'
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -15,4 +15,4 @@ services:
 
 networks:
   pdf-network:
-    driver: bridge 
+    driver: bridge

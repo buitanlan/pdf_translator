@@ -28,16 +28,19 @@ This directory contains Kubernetes manifests for deploying the PDF Translator ap
 ### Option 2: Manual Deployment
 
 1. **Build the Docker image:**
+
    ```bash
    docker build -t pdf-translator:latest .
    ```
 
 2. **Import image to K3s (if using local K3s):**
+
    ```bash
    docker save pdf-translator:latest | sudo k3s ctr images import -
    ```
 
 3. **Deploy to Kubernetes:**
+
    ```bash
    kubectl apply -k k8s/
    ```
@@ -50,7 +53,7 @@ This directory contains Kubernetes manifests for deploying the PDF Translator ap
 ## 📁 Manifest Files
 
 | File                 | Description                                               |
-|----------------------|-----------------------------------------------------------|
+| -------------------- | --------------------------------------------------------- |
 | `namespace.yaml`     | Creates the `pdf-translator` namespace                    |
 | `configmap.yaml`     | Nginx configuration with proper MIME types for .mjs files |
 | `deployment.yaml`    | Main application deployment with 2 replicas               |
@@ -127,20 +130,20 @@ The application includes health checks at `/health` endpoint:
 ### Common Issues
 
 1. **Image Pull Errors**
-    - Ensure the Docker image is built and available
-    - For local K3s, make sure to import the image using `k3s ctr images import`
+   - Ensure the Docker image is built and available
+   - For local K3s, make sure to import the image using `k3s ctr images import`
 
 2. **Ingress Not Working**
-    - Check if Traefik is running: `kubectl get pods -n kube-system | grep traefik`
-    - Verify your hosts file entry
+   - Check if Traefik is running: `kubectl get pods -n kube-system | grep traefik`
+   - Verify your hosts file entry
 
 3. **Pod Not Starting**
-    - Check pod logs: `kubectl logs <pod-name> -n pdf-translator`
-    - Check events: `kubectl describe pod <pod-name> -n pdf-translator`
+   - Check pod logs: `kubectl logs <pod-name> -n pdf-translator`
+   - Check events: `kubectl describe pod <pod-name> -n pdf-translator`
 
 4. **MIME Type Issues**
-    - The ConfigMap includes the fixed nginx configuration
-    - Restart the deployment if you see MIME type errors
+   - The ConfigMap includes the fixed nginx configuration
+   - Restart the deployment if you see MIME type errors
 
 ### Debug Commands
 
@@ -174,11 +177,13 @@ kubectl delete namespace pdf-translator
 To update the application:
 
 1. Build a new Docker image with a new tag:
+
    ```bash
    docker build -t pdf-translator:v1.1.0 .
    ```
 
 2. Update the image in `kustomization.yaml`:
+
    ```yaml
    images:
      - name: pdf-translator
@@ -210,4 +215,4 @@ If you encounter issues:
 
 1. Check the troubleshooting section above
 2. Review Kubernetes events: `kubectl get events -n pdf-translator`
-3. Check cluster resources: `kubectl top nodes` and `kubectl top pods -n pdf-translator` 
+3. Check cluster resources: `kubectl top nodes` and `kubectl top pods -n pdf-translator`

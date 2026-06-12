@@ -6,13 +6,7 @@
       "name": "app",
       "installMode": "prefetch",
       "resources": {
-        "files": [
-          "/favicon.ico",
-          "/index.html",
-          "/manifest.webmanifest",
-          "/*.css",
-          "/*.js"
-        ]
+        "files": ["/favicon.ico", "/index.html", "/manifest.webmanifest", "/*.css", "/*.js"]
       }
     },
     {
@@ -20,19 +14,14 @@
       "installMode": "lazy",
       "updateMode": "prefetch",
       "resources": {
-        "files": [
-          "/assets/**",
-          "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
-        ]
+        "files": ["/assets/**", "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"]
       }
     }
   ],
   "dataGroups": [
     {
       "name": "api",
-      "urls": [
-        "/api/**"
-      ],
+      "urls": ["/api/**"],
       "cacheConfig": {
         "strategy": "freshness",
         "maxSize": 100,
@@ -42,9 +31,7 @@
     },
     {
       "name": "indexeddb",
-      "urls": [
-        "/**"
-      ],
+      "urls": ["/**"],
       "cacheConfig": {
         "strategy": "performance",
         "maxSize": 1000,
