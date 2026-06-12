@@ -6,9 +6,14 @@ import {
   inject,
   OnInit,
   signal,
+  ViewEncapsulation,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { NgxExtendedPdfViewerModule, PdfLoadedEvent } from 'ngx-extended-pdf-viewer';
+import {
+  NgxExtendedPdfViewerModule,
+  PdfLoadedEvent,
+  PdfSidebarView,
+} from 'ngx-extended-pdf-viewer';
 import { PdfService } from '../../services/pdf.service';
 import { IndexedDbService } from '../../services/indexeddb.service';
 import { PdfDocument } from '../../models/pdf.interface';
@@ -16,6 +21,32 @@ import { PdfDocument } from '../../models/pdf.interface';
 @Component({
   selector: 'app-pdf-viewer',
   imports: [NgxExtendedPdfViewerModule],
+  encapsulation: ViewEncapsulation.None,
+  styles: [
+    `
+      /* Tailwind + pdf.js light-dark() can make outline text white on a light sidebar. */
+      app-pdf-viewer ngx-extended-pdf-viewer .treeView,
+      app-pdf-viewer ngx-extended-pdf-viewer #outlinesView,
+      app-pdf-viewer ngx-extended-pdf-viewer #viewsManager {
+        color-scheme: only light !important;
+        --treeitem-color: #15141a !important;
+        --treeitem-hover-color: #15141a !important;
+        --treeitem-selected-color: #15141a !important;
+        --treeitem-bg-color: rgb(21 20 26 / 0.08) !important;
+        --treeitem-selected-bg-color: rgb(21 20 26 / 0.15) !important;
+        --text-color: #15141a !important;
+      }
+
+      app-pdf-viewer ngx-extended-pdf-viewer #outlinesView .treeItem > a,
+      app-pdf-viewer ngx-extended-pdf-viewer .treeView .treeItem > a {
+        color: #15141a !important;
+        font-size: 13px !important;
+        line-height: 15px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+    `,
+  ],
   host: {
     '(window:beforeunload)': 'onBeforeUnload()',
   },
@@ -61,7 +92,9 @@ import { PdfDocument } from '../../models/pdf.interface';
             [src]="pdfSrc()!"
             [height]="'calc(100vh - 96px)'"
             [showToolbar]="true"
+            [theme]="'light'"
             [showSidebarButton]="true"
+            [activeSidebarView]="sidebarView.OUTLINE"
             [showFindButton]="true"
             [showPagingButtons]="true"
             [showZoomButtons]="true"
@@ -142,6 +175,7 @@ export class PdfViewerComponent implements OnInit {
 
   // Computed signals
   readonly documentName = computed(() => this.pdfDocument()?.name ?? 'Loading...');
+  readonly sidebarView = PdfSidebarView;
 
   constructor() {
     // Clean up blob URL when component is destroyed

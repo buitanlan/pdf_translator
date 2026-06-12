@@ -39,8 +39,8 @@ importers:
         specifier: ^22.0.1
         version: 22.0.1(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))(rxjs@7.8.2)
       ngx-extended-pdf-viewer:
-        specifier: ^25.6.4
-        version: 25.6.4(@angular/common@22.0.1(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))(rxjs@7.8.2))(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))
+        specifier: 28.0.0-rc.8
+        version: 28.0.0-rc.8(@angular/common@22.0.1(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))(rxjs@7.8.2))(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))
       rxjs:
         specifier: ~7.8.2
         version: 7.8.2
@@ -3939,11 +3939,11 @@ packages:
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
 
-  ngx-extended-pdf-viewer@25.6.4:
-    resolution: {integrity: sha512-eYIiWzatcupB7HKDtcOOZN7gcLFjqAkeIAlZOMIO6XyUJnTe+PUZLZGit/19mtO/8fAaH41lMyyh8MAcU8NAhA==}
+  ngx-extended-pdf-viewer@28.0.0-rc.8:
+    resolution: {integrity: sha512-M8yi1Rply8woqVwe1D7f2MX8MkhSp/Rrfkf3I+V7WdJgeTMZQxoHwJrXbDkwYxwUtPqX3Cz2ZY40zGGx5TV5hA==}
     peerDependencies:
-      '@angular/common': '>=17.0.0 <22.0.0'
-      '@angular/core': '>=17.0.0 <22.0.0'
+      '@angular/common': '>=19.0.0 <23.0.0 || 22.0.0-rc'
+      '@angular/core': '>=19.0.0 <23.0.0 || 22.0.0-rc'
 
   node-addon-api@6.1.0:
     resolution: {integrity: sha512-+eawOlIgy680F0kBzPUNFhMZGtJ1YmqM6l4+Crf4IkImjYrO/mqPwRMh352g23uIaQKFItcQ64I7KMaJxHgAVA==}
@@ -8865,7 +8865,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  ngx-extended-pdf-viewer@25.6.4(@angular/common@22.0.1(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))(rxjs@7.8.2))(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2)):
+  ngx-extended-pdf-viewer@28.0.0-rc.8(@angular/common@22.0.1(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))(rxjs@7.8.2))(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2)):
     dependencies:
       '@angular/common': 22.0.1(@angular/core@22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2))(rxjs@7.8.2)
       '@angular/core': 22.0.1(@angular/compiler@22.0.1)(rxjs@7.8.2)(zone.js@0.16.2)
