@@ -202,7 +202,7 @@ import { PdfListItem } from '../../models/pdf.interface';
                     </div>
                     <!-- Title Overlay -->
                     <div
-                      class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white p-2.5"
+                      class="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 via-black/70 to-transparent text-white p-2.5"
                     >
                       <h2
                         class="text-[10px] font-medium leading-tight truncate drop-shadow-sm"

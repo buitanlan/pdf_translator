@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for Angular PDF Translator App using Alpine 24
 
 # Stage 1: Build stage
-FROM node:lts-alpine3.22 AS build-stage
+FROM node:alpine3.24 AS build-stage
 
 # Set working directory
 WORKDIR /app
@@ -9,8 +9,8 @@ WORKDIR /app
 # Install pnpm globally
 RUN npm install -g pnpm
 
-# Copy package files
-COPY package*.json pnpm-lock.yaml ./
+# Copy package files and pnpm config (allowBuilds lives in pnpm-workspace.yaml)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -22,7 +22,7 @@ COPY . .
 RUN pnpm run build --configuration=production
 
 # Stage 2: Production stage
-FROM nginx:alpine3.22 AS production-stage
+FROM nginx:alpine AS production-stage
 
 # Install curl for health checks
 RUN apk add --no-cache curl
