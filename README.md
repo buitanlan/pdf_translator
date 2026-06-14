@@ -1,6 +1,6 @@
-# PDF Translator - Angular 20 PDF Viewer
+# PDF Translator - Angular 22 PDF Viewer
 
-A modern Angular 21 application that uses PDF.js to display and interact with PDF files in the browser.
+A modern Angular 22 application that uses PDF.js to display and interact with PDF files in the browser.
 
 ## Features
 
@@ -9,11 +9,11 @@ A modern Angular 21 application that uses PDF.js to display and interact with PD
 - 📖 **Page Navigation**: Navigate between pages with previous/next buttons
 - 🎨 **Modern UI**: Clean, responsive design with smooth animations
 - ⚡ **Fast Rendering**: Uses PDF.js for efficient PDF rendering
-- 🔧 **Angular 21**: Built with the latest Angular framework using standalone components
+- 🔧 **Angular 22**: Built with the latest Angular framework using standalone components
 
 ## Prerequisites
 
-- Node.js (version 18 or higher)
+- Node.js (version 22 or higher)
 - npm or yarn package manager
 
 ## Installation
@@ -77,7 +77,7 @@ src/
 To build the application for production:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 The built files will be in the `dist/pdf-translator` directory.
