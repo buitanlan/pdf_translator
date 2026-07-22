@@ -1,10 +1,11 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { PdfService } from '../../services/pdf.service';
-import { PdfListItem } from '../../models/pdf.interface';
+import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
 
 @Component({
   selector: 'app-home',
+  imports: [ThemeToggleComponent],
   host: {
     '(dragover)': 'onGlobalDragOver($event)',
     '(dragenter)': 'onGlobalDragEnter($event)',
@@ -12,7 +13,7 @@ import { PdfListItem } from '../../models/pdf.interface';
     '(drop)': 'onGlobalDrop($event)',
   },
   template: `
-    <div class="min-h-screen bg-gray-50 py-4 relative">
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 relative">
       <!-- Drag Overlay -->
       @if (isDragOver()) {
         <div
@@ -20,7 +21,7 @@ import { PdfListItem } from '../../models/pdf.interface';
           role="region"
           aria-label="Drop zone active"
         >
-          <div class="bg-white rounded-lg p-8 text-center shadow-xl">
+          <div class="bg-white dark:bg-gray-800 rounded-lg p-8 text-center shadow-xl">
             <svg
               class="mx-auto h-16 w-16 text-blue-500 mb-4"
               fill="currentColor"
@@ -33,8 +34,10 @@ import { PdfListItem } from '../../models/pdf.interface';
                 clip-rule="evenodd"
               />
             </svg>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Drop PDF files here</h3>
-            <p class="text-gray-600">Release to upload your PDF files</p>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Drop PDF files here
+            </h3>
+            <p class="text-gray-600 dark:text-gray-400">Release to upload your PDF files</p>
           </div>
         </div>
       }
@@ -42,20 +45,20 @@ import { PdfListItem } from '../../models/pdf.interface';
       <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16">
         <!-- Header with Action Buttons -->
         <header class="flex justify-between items-center mb-8">
-          <h1 class="text-2xl font-bold text-gray-900">PDF Translator</h1>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">PDF Translator</h1>
           <div class="flex gap-3" role="toolbar" aria-label="PDF actions">
             <!-- Upload Progress Bar -->
             @if (isUploading() && totalFiles() > 1) {
               <div
-                class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2"
+                class="flex items-center gap-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2"
                 role="status"
                 aria-live="polite"
               >
-                <span class="text-sm text-blue-700 font-medium">
+                <span class="text-sm text-blue-700 dark:text-blue-300 font-medium">
                   Uploading {{ uploadedFiles() }}/{{ totalFiles() }}
                 </span>
                 <div
-                  class="w-32 bg-blue-200 rounded-full h-2"
+                  class="w-32 bg-blue-200 dark:bg-blue-900 rounded-full h-2"
                   role="progressbar"
                   [attr.aria-valuenow]="uploadProgress()"
                   aria-valuemin="0"
@@ -67,7 +70,9 @@ import { PdfListItem } from '../../models/pdf.interface';
                     [style.width.%]="uploadProgress()"
                   ></div>
                 </div>
-                <span class="text-sm text-blue-700 font-medium">{{ uploadProgressText() }}</span>
+                <span class="text-sm text-blue-700 dark:text-blue-300 font-medium">{{
+                  uploadProgressText()
+                }}</span>
               </div>
             }
 
@@ -75,7 +80,7 @@ import { PdfListItem } from '../../models/pdf.interface';
               <button
                 type="button"
                 (click)="clearAllPdfs()"
-                class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                 aria-label="Clear all PDFs"
               >
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -88,8 +93,10 @@ import { PdfListItem } from '../../models/pdf.interface';
               </button>
             }
 
+            <app-theme-toggle />
+
             <label
-              class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+              class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-900"
               [class.opacity-50]="isUploading()"
               [class.cursor-not-allowed]="isUploading()"
             >
@@ -173,11 +180,14 @@ import { PdfListItem } from '../../models/pdf.interface';
                   <!-- PDF Thumbnail with Title Overlay -->
                   <button
                     type="button"
-                    class="relative bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 aspect-[3/4] w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    draggable="false"
+                    class="relative bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 aspect-[3/4] w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                     [class.shadow-xl]="draggedIndex() === i"
                     [class.ring-2]="draggedIndex() === i"
                     [class.ring-blue-500]="draggedIndex() === i"
                     (click)="openPdf(pdf.id)"
+                    (dragover)="onItemDragOver($event, i)"
+                    (drop)="onItemDrop($event, i)"
                     [attr.aria-label]="'Open ' + pdf.name"
                   >
                     <div class="w-full h-full flex items-center justify-center">
@@ -206,7 +216,11 @@ import { PdfListItem } from '../../models/pdf.interface';
                     </div>
                   </button>
                   <!-- File Info -->
-                  <div class="mt-2 flex items-center justify-between text-[10px] text-gray-500">
+                  <div
+                    class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400"
+                    (dragover)="onItemDragOver($event, i)"
+                    (drop)="onItemDrop($event, i)"
+                  >
                     <div class="flex items-center">
                       <svg
                         class="w-2.5 h-2.5 mr-1"
@@ -225,7 +239,7 @@ import { PdfListItem } from '../../models/pdf.interface';
                     <button
                       type="button"
                       (click)="deletePdf(pdf.id, $event)"
-                      class="text-gray-400 hover:text-red-600 transition-colors focus:outline-none focus:text-red-600"
+                      class="cursor text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors focus:outline-none focus:text-red-600 dark:focus:text-red-400"
                       [attr.aria-label]="'Delete ' + pdf.name"
                     >
                       <svg
@@ -248,7 +262,7 @@ import { PdfListItem } from '../../models/pdf.interface';
           } @else {
             <div class="text-center py-12" role="status">
               <svg
-                class="mx-auto h-12 w-12 text-gray-400"
+                class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 48 48"
@@ -261,11 +275,13 @@ import { PdfListItem } from '../../models/pdf.interface';
                   stroke-linejoin="round"
                 />
               </svg>
-              <h2 class="mt-2 text-sm font-medium text-gray-900">No PDFs uploaded</h2>
-              <p class="mt-1 text-sm text-gray-500">
+              <h2 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                No PDFs uploaded
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Get started by uploading your first PDF. You can select multiple files at once!
               </p>
-              <p class="mt-1 text-xs text-gray-400">
+              <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                 Drag and drop PDF files here or click the upload button above.
               </p>
             </div>
@@ -275,12 +291,11 @@ import { PdfListItem } from '../../models/pdf.interface';
     </div>
   `,
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent {
   private readonly pdfService = inject(PdfService);
   private readonly router = inject(Router);
 
-  // State signals
-  readonly pdfs = signal<PdfListItem[]>([]);
+  readonly pdfs = this.pdfService.pdfs;
   readonly draggedIndex = signal<number | null>(null);
   readonly dragOverIndex = signal<number | null>(null);
   readonly isDragOver = signal(false);
@@ -291,10 +306,6 @@ export class HomeComponent implements OnInit {
 
   // Computed signals
   readonly uploadProgressText = computed(() => `${this.uploadProgress().toFixed(0)}%`);
-
-  async ngOnInit(): Promise<void> {
-    await this.loadPdfs();
-  }
 
   // Global drag and drop handlers (bound via host object)
   onGlobalDragOver(event: DragEvent): void {
@@ -389,50 +400,7 @@ export class HomeComponent implements OnInit {
   }
 
   private reorderPdfs(fromIndex: number, toIndex: number): void {
-    this.pdfs.update((currentPdfs) => {
-      const reordered = [...currentPdfs];
-      const [movedItem] = reordered.splice(fromIndex, 1);
-      reordered.splice(toIndex, 0, movedItem);
-      return reordered;
-    });
-
-    this.savePdfOrder();
-  }
-
-  private savePdfOrder(): void {
-    try {
-      const pdfOrder = this.pdfs().map((pdf) => pdf.id);
-      localStorage.setItem('pdfOrder', JSON.stringify(pdfOrder));
-    } catch (error) {
-      console.error('Error saving PDF order:', error);
-    }
-  }
-
-  private loadPdfOrder(): void {
-    try {
-      const savedOrder = localStorage.getItem('pdfOrder');
-      if (savedOrder) {
-        const orderIds: string[] = JSON.parse(savedOrder);
-
-        this.pdfs.update((currentPdfs) => {
-          const orderedPdfs: PdfListItem[] = [];
-          const unorderedPdfs: PdfListItem[] = [];
-
-          currentPdfs.forEach((pdf) => {
-            const orderIndex = orderIds.indexOf(pdf.id);
-            if (orderIndex !== -1) {
-              orderedPdfs[orderIndex] = pdf;
-            } else {
-              unorderedPdfs.push(pdf);
-            }
-          });
-
-          return [...orderedPdfs.filter(Boolean), ...unorderedPdfs];
-        });
-      }
-    } catch (error) {
-      console.error('Error loading PDF order:', error);
-    }
+    this.pdfService.reorderPdfs(fromIndex, toIndex);
   }
 
   private async uploadFile(file: File): Promise<void> {
@@ -444,22 +412,10 @@ export class HomeComponent implements OnInit {
     try {
       console.log('Uploading PDF:', file.name, 'Size:', file.size);
       const id = await this.pdfService.uploadPdf(file);
-      await this.loadPdfs();
-      this.loadPdfOrder();
       console.log('PDF uploaded successfully with ID:', id);
     } catch (error) {
       console.error('Error uploading PDF:', error);
       alert(`Failed to upload PDF: ${file.name}. Please try again.`);
-    }
-  }
-
-  private async loadPdfs(): Promise<void> {
-    try {
-      const loadedPdfs = await this.pdfService.getAllPdfs();
-      this.pdfs.set(loadedPdfs);
-      this.loadPdfOrder();
-    } catch (error) {
-      console.error('Error loading PDFs:', error);
     }
   }
 
@@ -504,7 +460,7 @@ export class HomeComponent implements OnInit {
           'Size:',
           file.size,
         );
-        const id = await this.pdfService.uploadPdf(file);
+        const id = await this.pdfService.uploadPdf(file, { refresh: false });
         console.log(`PDF ${index + 1} uploaded successfully with ID:`, id);
 
         this.uploadedFiles.update((count) => count + 1);
@@ -527,8 +483,7 @@ export class HomeComponent implements OnInit {
       const failed = results.filter((r) => !r.success);
 
       if (successful.length > 0) {
-        await this.loadPdfs();
-        this.loadPdfOrder();
+        await this.pdfService.refresh();
         console.log(
           `Batch upload completed: ${successful.length} successful, ${failed.length} failed`,
         );
@@ -558,17 +513,16 @@ export class HomeComponent implements OnInit {
   formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   async deletePdf(id: string, event: Event): Promise<void> {
     event.stopPropagation();
-    if (confirm('Are you sure you want to delete this PDF?')) {
+    if (confirm('Are you sure to delete this PDF?')) {
       try {
         await this.pdfService.deletePdf(id);
-        await this.loadPdfs();
         console.log('PDF deleted successfully with ID:', id);
       } catch (error) {
         console.error('Error deleting PDF:', error);
@@ -583,10 +537,7 @@ export class HomeComponent implements OnInit {
       confirm(`Are you sure you want to delete all ${pdfCount} PDFs? This action cannot be undone.`)
     ) {
       try {
-        for (const pdf of this.pdfs()) {
-          await this.pdfService.deletePdf(pdf.id);
-        }
-        await this.loadPdfs();
+        await this.pdfService.deleteAllPdfs();
         console.log('All PDFs deleted successfully');
       } catch (error) {
         console.error('Error deleting all PDFs:', error);

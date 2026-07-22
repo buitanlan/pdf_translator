@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { effect, inject, Injectable, signal } from '@angular/core';
 import { IndexedDbService } from './indexeddb.service';
 import { PdfDocument, PdfListItem } from '../models/pdf.interface';
 
@@ -30,17 +30,46 @@ declare global {
   }
 }
 
+interface MutationOptions {
+  refresh?: boolean;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class PdfService {
   private readonly indexedDbService = inject(IndexedDbService);
 
-  async uploadPdf(file: File): Promise<string> {
+  private readonly orderedPdfsState = signal<PdfListItem[]>([]);
+  readonly pdfs = this.orderedPdfsState.asReadonly();
+  readonly loading = this.indexedDbService.loading;
+
+  constructor() {
+    effect(() => {
+      const items = this.indexedDbService.pdfs();
+      this.orderedPdfsState.set(this.applySavedOrder([...items]));
+    });
+  }
+
+  async refresh(): Promise<void> {
+    await this.indexedDbService.refresh();
+  }
+
+  reorderPdfs(fromIndex: number, toIndex: number): void {
+    this.orderedPdfsState.update((current) => {
+      const reordered = [...current];
+      const [movedItem] = reordered.splice(fromIndex, 1);
+      const insertIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+      reordered.splice(insertIndex, 0, movedItem);
+      this.savePdfOrder(reordered);
+      return reordered;
+    });
+  }
+
+  async uploadPdf(file: File, options: MutationOptions = {}): Promise<string> {
     const id = this.generateId();
     const coverImage = await this.generateCoverFromFirstPage(file);
 
-    // Convert File to ArrayBuffer for better IndexedDB storage
     const arrayBuffer = await file.arrayBuffer();
 
     const pdfDocument: PdfDocument = {
@@ -52,28 +81,78 @@ export class PdfService {
       coverImage,
     };
 
-    await this.indexedDbService.savePdf(pdfDocument);
+    await this.indexedDbService.savePdf(pdfDocument, options);
     return id;
-  }
-
-  async getAllPdfs(): Promise<PdfListItem[]> {
-    return this.indexedDbService.getAllPdfs();
   }
 
   async getPdfById(id: string): Promise<PdfDocument | null> {
     const pdfDoc = await this.indexedDbService.getPdfById(id);
     if (pdfDoc?.file) {
-      // Ensure the file is properly reconstructed
       if (!(pdfDoc.file instanceof File)) {
-        // If it's stored as raw data, reconstruct the File object
         pdfDoc.file = new File([pdfDoc.file as Blob], pdfDoc.name, { type: 'application/pdf' });
       }
     }
     return pdfDoc;
   }
 
-  async deletePdf(id: string): Promise<void> {
-    return this.indexedDbService.deletePdf(id);
+  async deletePdf(id: string, options: MutationOptions = {}): Promise<void> {
+    await this.indexedDbService.deletePdf(id, options);
+
+    if (options.refresh === false) {
+      this.orderedPdfsState.update((pdfs) => {
+        const filtered = pdfs.filter((pdf) => pdf.id !== id);
+        this.savePdfOrder(filtered);
+        return filtered;
+      });
+    }
+  }
+
+  async deleteAllPdfs(): Promise<void> {
+    await this.indexedDbService.deleteAllPdfs();
+    localStorage.removeItem('pdfOrder');
+  }
+
+  async saveCurrentPage(pdfId: string, currentPage: number): Promise<void> {
+    return this.indexedDbService.saveCurrentPage(pdfId, currentPage);
+  }
+
+  async getCurrentPage(pdfId: string): Promise<number | null> {
+    return this.indexedDbService.getCurrentPage(pdfId);
+  }
+
+  private savePdfOrder(pdfs: PdfListItem[]): void {
+    try {
+      localStorage.setItem('pdfOrder', JSON.stringify(pdfs.map((pdf) => pdf.id)));
+    } catch (error) {
+      console.error('Error saving PDF order:', error);
+    }
+  }
+
+  private applySavedOrder(pdfs: PdfListItem[]): PdfListItem[] {
+    try {
+      const savedOrder = localStorage.getItem('pdfOrder');
+      if (!savedOrder) {
+        return pdfs;
+      }
+
+      const orderIds: string[] = JSON.parse(savedOrder);
+      const orderedPdfs: PdfListItem[] = [];
+      const unorderedPdfs: PdfListItem[] = [];
+
+      pdfs.forEach((pdf) => {
+        const orderIndex = orderIds.indexOf(pdf.id);
+        if (orderIndex !== -1) {
+          orderedPdfs[orderIndex] = pdf;
+        } else {
+          unorderedPdfs.push(pdf);
+        }
+      });
+
+      return [...orderedPdfs.filter(Boolean), ...unorderedPdfs];
+    } catch (error) {
+      console.error('Error loading PDF order:', error);
+      return pdfs;
+    }
   }
 
   private generateId(): string {
@@ -82,7 +161,6 @@ export class PdfService {
 
   private async generateCoverFromFirstPage(file: File): Promise<string> {
     try {
-      // Load PDF.js if not already loaded
       if (typeof window.pdfjsLib === 'undefined') {
         await this.loadPdfJs();
       }
@@ -96,11 +174,9 @@ export class PdfService {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const page = await pdf.getPage(1);
 
-      // Create canvas for rendering
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
 
-      // Set desired dimensions for thumbnail
       const viewport = page.getViewport({ scale: 1 });
       const scale = Math.min(200 / viewport.width, 280 / viewport.height);
       const scaledViewport = page.getViewport({ scale });
@@ -108,17 +184,14 @@ export class PdfService {
       canvas.width = scaledViewport.width;
       canvas.height = scaledViewport.height;
 
-      // Render PDF page to canvas
       await page.render({
         canvasContext: context,
         viewport: scaledViewport,
       }).promise;
 
-      // Convert canvas to base64 image
       return canvas.toDataURL('image/jpeg', 0.8);
     } catch (error) {
       console.error('Error generating cover from PDF:', error);
-      // Fallback to placeholder if PDF rendering fails
       return this.createPlaceholderImage(file.name);
     }
   }
@@ -157,8 +230,7 @@ export class PdfService {
       return '';
     }
 
-    // Create a simple placeholder
-    ctx.fillStyle = '#dc2626'; // Red background
+    ctx.fillStyle = '#dc2626';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = '#ffffff';
@@ -191,7 +263,6 @@ export class PdfService {
     if (file.type !== 'application/pdf') return false;
     if (file.size === 0) return false;
     if (file.size > 100 * 1024 * 1024) {
-      // 100MB limit
       console.warn('PDF file is very large:', file.size);
     }
     return true;

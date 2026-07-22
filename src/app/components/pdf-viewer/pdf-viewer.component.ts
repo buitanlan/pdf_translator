@@ -6,25 +6,26 @@ import {
   PdfSidebarView,
 } from 'ngx-extended-pdf-viewer';
 import { PdfService } from '../../services/pdf.service';
-import { IndexedDbService } from '../../services/indexeddb.service';
 import { PdfDocument } from '../../models/pdf.interface';
+import { ThemeService } from '../../services/theme.service';
+import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
 
 @Component({
   selector: 'app-pdf-viewer',
-  imports: [NgxExtendedPdfViewerModule],
+  imports: [NgxExtendedPdfViewerModule, ThemeToggleComponent],
   host: {
     '(window:beforeunload)': 'onBeforeUnload()',
   },
   template: `
-    <div class="min-h-screen bg-gray-100">
-      <header class="bg-white shadow-sm border-b">
+    <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
+      <header class="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-8">
-            <div class="flex items-center">
+            <div class="flex items-center min-w-0">
               <button
                 type="button"
                 (click)="goBack()"
-                class="mr-4 p-1 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="mr-4 p-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label="Go back to PDF list"
               >
                 <svg
@@ -42,10 +43,11 @@ import { PdfDocument } from '../../models/pdf.interface';
                   />
                 </svg>
               </button>
-              <h1 class="text-xs sm:text-sm font-medium text-gray-900 truncate">
+              <h1 class="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 {{ documentName() }}
               </h1>
             </div>
+            <app-theme-toggle [compact]="true" />
           </div>
         </div>
       </header>
@@ -57,7 +59,7 @@ import { PdfDocument } from '../../models/pdf.interface';
             [src]="pdfSrc()!"
             [height]="'calc(100vh - 96px)'"
             [showToolbar]="true"
-            [theme]="'light'"
+            [theme]="pdfViewerTheme()"
             [showSidebarButton]="true"
             [activeSidebarView]="sidebarView.OUTLINE"
             [showFindButton]="true"
@@ -88,10 +90,10 @@ import { PdfDocument } from '../../models/pdf.interface';
         <main class="flex items-center justify-center h-96" role="alert">
           <div class="text-center">
             <div class="text-red-500 text-6xl mb-4" aria-hidden="true">⚠️</div>
-            <h2 class="text-xl font-semibold text-gray-900 mb-2">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
               {{ error() || 'PDF not found' }}
             </h2>
-            <p class="text-gray-600 mb-4">
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
               {{
                 error()
                   ? 'There was an error loading the PDF file.'
@@ -101,7 +103,7 @@ import { PdfDocument } from '../../models/pdf.interface';
             <button
               type="button"
               (click)="goBack()"
-              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
             >
               Go Back
             </button>
@@ -117,7 +119,7 @@ import { PdfDocument } from '../../models/pdf.interface';
               class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"
               aria-hidden="true"
             ></div>
-            <p class="text-gray-600">Loading PDF...</p>
+            <p class="text-gray-600 dark:text-gray-400">Loading PDF...</p>
           </div>
         </main>
       }
@@ -128,8 +130,8 @@ export class PdfViewerComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly pdfService = inject(PdfService);
-  private readonly indexedDbService = inject(IndexedDbService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly themeService = inject(ThemeService);
 
   // State signals
   readonly pdfDocument = signal<PdfDocument | null>(null);
@@ -141,6 +143,7 @@ export class PdfViewerComponent implements OnInit {
   // Computed signals
   readonly documentName = computed(() => this.pdfDocument()?.name ?? 'Loading...');
   readonly sidebarView = PdfSidebarView;
+  readonly pdfViewerTheme = computed(() => (this.themeService.isDark() ? 'dark' : 'light'));
 
   constructor() {
     // Clean up blob URL when component is destroyed
@@ -181,7 +184,7 @@ export class PdfViewerComponent implements OnInit {
         this.pdfSrc.set(this.pdfService.createBlobUrl(pdfDoc.file));
 
         // Load saved current page
-        const savedPage = await this.indexedDbService.getCurrentPage(id);
+        const savedPage = await this.pdfService.getCurrentPage(id);
         if (savedPage) {
           this.currentPage.set(savedPage);
         }
@@ -224,7 +227,7 @@ export class PdfViewerComponent implements OnInit {
 
     if (doc && page > 0) {
       try {
-        await this.indexedDbService.saveCurrentPage(doc.id, page);
+        await this.pdfService.saveCurrentPage(doc.id, page);
         console.log('Current page saved:', page);
       } catch (err) {
         console.error('Error saving current page:', err);

@@ -4,3 +4,35 @@ allowBuilds:
   esbuild: true
   lmdb: true
   msgpackr-extract: true
+minimumReleaseAgeExclude:
+  - '@angular/animations@22.0.8'
+  - '@angular/common@22.0.8'
+  - '@angular/compiler-cli@22.0.8'
+  - '@angular/compiler@22.0.8'
+  - '@angular/core@22.0.8'
+  - '@angular/forms@22.0.8'
+  - '@angular/platform-browser-dynamic@22.0.8'
+  - '@angular/platform-browser@22.0.8'
+  - '@angular/router@22.0.8'
+  - '@angular/service-worker@22.0.8'
+  - '@oxfmt/binding-android-arm-eabi@0.60.0'
+  - '@oxfmt/binding-android-arm64@0.60.0'
+  - '@oxfmt/binding-darwin-arm64@0.60.0'
+  - '@oxfmt/binding-darwin-x64@0.60.0'
+  - '@oxfmt/binding-freebsd-x64@0.60.0'
+  - '@oxfmt/binding-linux-arm-gnueabihf@0.60.0'
+  - '@oxfmt/binding-linux-arm-musleabihf@0.60.0'
+  - '@oxfmt/binding-linux-arm64-gnu@0.60.0'
+  - '@oxfmt/binding-linux-arm64-musl@0.60.0'
+  - '@oxfmt/binding-linux-ppc64-gnu@0.60.0'
+  - '@oxfmt/binding-linux-riscv64-gnu@0.60.0'
+  - '@oxfmt/binding-linux-riscv64-musl@0.60.0'
+  - '@oxfmt/binding-linux-s390x-gnu@0.60.0'
+  - '@oxfmt/binding-linux-x64-gnu@0.60.0'
+  - '@oxfmt/binding-linux-x64-musl@0.60.0'
+  - '@oxfmt/binding-openharmony-arm64@0.60.0'
+  - '@oxfmt/binding-win32-arm64-msvc@0.60.0'
+  - '@oxfmt/binding-win32-ia32-msvc@0.60.0'
+  - '@oxfmt/binding-win32-x64-msvc@0.60.0'
+  - oxfmt@0.60.0
+  - postcss@8.5.22
