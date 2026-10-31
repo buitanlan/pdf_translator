@@ -1,8 +1,8 @@
 {
-  "name": "PDF Translator",
-  "short_name": "PDF Translator",
+  "name": "Document Library — PDF & EPUB Reader",
+  "short_name": "Documents",
   "theme_color": "#2563eb",
-  "background_color": "#ffffff",
+  "background_color": "#f6f7f9",
   "display": "standalone",
   "scope": "/",
   "start_url": "/",

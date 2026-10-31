@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { PdfDocument, PdfListItem } from '../models/pdf.interface';
+import { DocumentKind, DocumentListItem, StoredDocument } from '../models/document.interface';
 
 interface MutationOptions {
   refresh?: boolean;
@@ -10,14 +10,14 @@ interface MutationOptions {
 })
 export class IndexedDbService {
   private readonly dbName = 'PdfTranslatorDB';
-  private readonly dbVersion = 1;
+  private readonly dbVersion = 2;
   private readonly storeName = 'pdfs';
 
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
 
-  private readonly pdfsState = signal<PdfListItem[]>([]);
-  readonly pdfs = this.pdfsState.asReadonly();
+  private readonly documentsState = signal<DocumentListItem[]>([]);
+  readonly documents = this.documentsState.asReadonly();
 
   private readonly loadingState = signal(false);
   readonly loading = this.loadingState.asReadonly();
@@ -25,76 +25,89 @@ export class IndexedDbService {
   private readonly readyState = signal(false);
   readonly ready = this.readyState.asReadonly();
 
+  private readonly errorState = signal<string | null>(null);
+  readonly error = this.errorState.asReadonly();
+
   constructor() {
-    void this.ensureReady().then(() => this.refresh());
+    void this.ensureReady()
+      .then(() => this.refresh())
+      .catch((error: unknown) => {
+        console.error('Could not open the local document database:', error);
+        this.loadingState.set(false);
+        this.errorState.set(
+          'The local library database could not be opened. Private browsing or blocked storage may be the cause.',
+        );
+      });
   }
 
   async refresh(): Promise<void> {
     await this.ensureReady();
     this.loadingState.set(true);
+    this.errorState.set(null);
 
     try {
-      const pdfs = await this.fetchAllPdfs();
-      this.pdfsState.set(pdfs);
+      this.documentsState.set(await this.fetchAllDocuments());
     } catch (error) {
-      console.error('Error loading PDFs from IndexedDB:', error);
+      console.error('Error loading documents from IndexedDB:', error);
+      this.errorState.set('Your saved documents could not be read from this device.');
     } finally {
       this.loadingState.set(false);
     }
   }
 
-  async savePdf(pdf: PdfDocument, options: MutationOptions = {}): Promise<void> {
+  async saveDocument(document: StoredDocument, options: MutationOptions = {}): Promise<void> {
     await this.ensureReady();
-    await this.putPdf(pdf);
+    await this.putDocument(document);
 
     if (options.refresh !== false) {
       await this.refresh();
     }
   }
 
-  async getPdfById(id: string): Promise<PdfDocument | null> {
+  async getDocumentById(id: string): Promise<StoredDocument | null> {
     await this.ensureReady();
-    return this.fetchPdfById(id);
+    const document = await this.fetchDocumentById(id);
+    return document ? this.normalizeDocument(document) : null;
   }
 
-  async deletePdf(id: string, options: MutationOptions = {}): Promise<void> {
+  async updateDocument(
+    id: string,
+    changes: Partial<Omit<StoredDocument, 'id' | 'file'>>,
+  ): Promise<DocumentListItem | null> {
     await this.ensureReady();
-    await this.removePdf(id);
+    const document = await this.fetchDocumentById(id);
+    if (!document) {
+      throw new Error('Document not found');
+    }
+
+    const updated: StoredDocument = {
+      ...this.normalizeDocument(document),
+      ...changes,
+    };
+    await this.putDocument(updated);
+    return this.toListItem(updated);
+  }
+
+  async deleteDocument(id: string, options: MutationOptions = {}): Promise<void> {
+    await this.ensureReady();
+    await this.removeDocument(id);
 
     if (options.refresh === false) {
-      this.pdfsState.update((pdfs) => pdfs.filter((pdf) => pdf.id !== id));
+      this.documentsState.update((documents) => documents.filter((document) => document.id !== id));
       return;
     }
 
     await this.refresh();
   }
 
-  async deleteAllPdfs(): Promise<void> {
+  async deleteAllDocuments(): Promise<void> {
     await this.ensureReady();
 
-    for (const pdf of this.pdfsState()) {
-      await this.removePdf(pdf.id);
+    for (const document of this.documentsState()) {
+      await this.removeDocument(document.id);
     }
 
-    this.pdfsState.set([]);
-  }
-
-  async saveCurrentPage(pdfId: string, currentPage: number): Promise<void> {
-    await this.ensureReady();
-
-    const pdf = await this.fetchPdfById(pdfId);
-    if (!pdf) {
-      throw new Error('PDF not found');
-    }
-
-    pdf.currentPage = currentPage;
-    await this.putPdf(pdf);
-  }
-
-  async getCurrentPage(pdfId: string): Promise<number | null> {
-    await this.ensureReady();
-    const pdf = await this.fetchPdfById(pdfId);
-    return pdf?.currentPage ?? null;
+    this.documentsState.set([]);
   }
 
   private ensureReady(): Promise<void> {
@@ -116,17 +129,42 @@ export class IndexedDbService {
       };
 
       request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
+        const db = request.result;
+        const transaction = request.transaction;
+        if (!transaction) {
+          return;
+        }
+
+        let store: IDBObjectStore;
         if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store = db.createObjectStore(this.storeName, { keyPath: 'id' });
           store.createIndex('name', 'name', { unique: false });
           store.createIndex('uploadDate', 'uploadDate', { unique: false });
+        } else {
+          store = transaction.objectStore(this.storeName);
+        }
+
+        if (event.oldVersion > 0 && event.oldVersion < 2) {
+          const cursorRequest = store.openCursor();
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result;
+            if (!cursor) {
+              return;
+            }
+
+            const legacy = cursor.value as StoredDocument;
+            cursor.update({
+              ...legacy,
+              kind: legacy.kind ?? this.inferDocumentKind(legacy.name, legacy.file?.type),
+            });
+            cursor.continue();
+          };
         }
       };
     });
   }
 
-  private fetchAllPdfs(): Promise<PdfListItem[]> {
+  private fetchAllDocuments(): Promise<DocumentListItem[]> {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
@@ -134,13 +172,15 @@ export class IndexedDbService {
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
-        const pdfs = request.result.map((pdf: PdfDocument) => this.toListItem(pdf));
-        resolve(pdfs);
+        const documents = request.result.map((document: StoredDocument) =>
+          this.toListItem(this.normalizeDocument(document)),
+        );
+        resolve(documents);
       };
     });
   }
 
-  private fetchPdfById(id: string): Promise<PdfDocument | null> {
+  private fetchDocumentById(id: string): Promise<StoredDocument | null> {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
@@ -151,35 +191,57 @@ export class IndexedDbService {
     });
   }
 
-  private putPdf(pdf: PdfDocument): Promise<void> {
+  private putDocument(document: StoredDocument): Promise<void> {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.put(pdf);
+      const request = transaction.objectStore(this.storeName).put(document);
 
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
     });
   }
 
-  private removePdf(id: string): Promise<void> {
+  private removeDocument(id: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.delete(id);
+      const request = transaction.objectStore(this.storeName).delete(id);
 
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
     });
   }
 
-  private toListItem(pdf: PdfDocument): PdfListItem {
+  private normalizeDocument(document: StoredDocument): StoredDocument {
     return {
-      id: pdf.id,
-      name: pdf.name,
-      uploadDate: pdf.uploadDate,
-      size: pdf.size,
-      coverImage: pdf.coverImage,
+      ...document,
+      kind: document.kind ?? this.inferDocumentKind(document.name, document.file?.type),
+    };
+  }
+
+  private inferDocumentKind(name: string, mimeType?: string): DocumentKind {
+    return name.toLowerCase().endsWith('.epub') || mimeType === 'application/epub+zip'
+      ? 'epub'
+      : 'pdf';
+  }
+
+  private toListItem(document: StoredDocument): DocumentListItem {
+    return {
+      id: document.id,
+      name: document.name,
+      title: document.title,
+      author: document.author,
+      kind: document.kind,
+      uploadDate: document.uploadDate,
+      size: document.size,
+      coverImage: document.coverImage,
+      coverGenerated: document.coverGenerated,
+      currentPage: document.currentPage,
+      epubCfi: document.epubCfi,
+      epubChapter: document.epubChapter,
+      epubHref: document.epubHref,
+      epubProgress: document.epubProgress,
     };
   }
 }

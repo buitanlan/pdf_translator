@@ -1,11 +1,31 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { PdfService } from '../../services/pdf.service';
+import { DocumentListItem } from '../../models/document.interface';
+import { DocumentService } from '../../services/document.service';
+import {
+  formatEpubPosition,
+  formatFileSize,
+  formatPdfPosition,
+  progressFractionToPercent,
+  truncate,
+} from '../../utils/reader.utils';
+import { IconComponent } from '../shared/icon.component';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
 
+type NoticeTone = 'error' | 'success' | 'info';
+
+interface LibraryNotice {
+  tone: NoticeTone;
+  message: string;
+}
+
+/**
+ * Offline document library. Upload, validation, ordering and reading positions
+ * all stay local in IndexedDB and localStorage.
+ */
 @Component({
   selector: 'app-home',
-  imports: [ThemeToggleComponent],
+  imports: [IconComponent, ThemeToggleComponent],
   host: {
     '(dragover)': 'onGlobalDragOver($event)',
     '(dragenter)': 'onGlobalDragEnter($event)',
@@ -13,289 +33,398 @@ import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
     '(drop)': 'onGlobalDrop($event)',
   },
   template: `
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 relative">
-      <!-- Drag Overlay -->
+    <div class="relative min-h-dvh bg-[#f6f7f9] dark:bg-[#080b12]">
       @if (isDragOver()) {
         <div
-          class="fixed inset-0 bg-blue-500 bg-opacity-20 border-4 border-dashed border-blue-500 z-50 flex items-center justify-center"
+          class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-blue-600/10 p-4 backdrop-blur-[1px]"
           role="region"
           aria-label="Drop zone active"
         >
-          <div class="bg-white dark:bg-gray-800 rounded-lg p-8 text-center shadow-xl">
-            <svg
-              class="mx-auto h-16 w-16 text-blue-500 mb-4"
-              fill="currentColor"
-              viewBox="0 0 20 20"
+          <div
+            class="rounded-2xl border-2 border-dashed border-blue-500 bg-white p-8 text-center shadow-xl dark:bg-gray-900"
+          >
+            <span
+              class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
               aria-hidden="true"
             >
-              <path
-                fill-rule="evenodd"
-                d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Drop PDF files here
-            </h3>
-            <p class="text-gray-600 dark:text-gray-400">Release to upload your PDF files</p>
+              <app-icon name="upload" size="lg" />
+            </span>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Drop PDF or EPUB files to add them
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Release anywhere on this page. Files stay on this device.
+            </p>
           </div>
         </div>
       }
 
-      <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16">
-        <!-- Header with Action Buttons -->
-        <header class="flex justify-between items-center mb-8">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">PDF Translator</h1>
-          <div class="flex gap-3" role="toolbar" aria-label="PDF actions">
-            <!-- Upload Progress Bar -->
-            @if (isUploading() && totalFiles() > 1) {
-              <div
-                class="flex items-center gap-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2"
-                role="status"
-                aria-live="polite"
-              >
-                <span class="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                  Uploading {{ uploadedFiles() }}/{{ totalFiles() }}
-                </span>
-                <div
-                  class="w-32 bg-blue-200 dark:bg-blue-900 rounded-full h-2"
-                  role="progressbar"
-                  [attr.aria-valuenow]="uploadProgress()"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  [attr.aria-label]="'Upload progress: ' + uploadProgressText()"
-                >
-                  <div
-                    class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    [style.width.%]="uploadProgress()"
-                  ></div>
-                </div>
-                <span class="text-sm text-blue-700 dark:text-blue-300 font-medium">{{
-                  uploadProgressText()
-                }}</span>
-              </div>
-            }
+      <header
+        class="sticky top-0 z-30 border-b border-gray-200 bg-white/85 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85"
+      >
+        <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm"
+            aria-hidden="true"
+          >
+            <app-icon name="library" size="sm" />
+          </span>
 
-            @if (pdfs().length > 0) {
+          <div class="min-w-0 flex-1">
+            <h1 class="truncate text-sm font-semibold text-gray-900 sm:text-base dark:text-gray-100">
+              Document Library
+            </h1>
+            <p class="truncate text-[11px] text-gray-500 dark:text-gray-400">
+              @if (loading() && documents().length === 0) {
+                Loading your library…
+              } @else {
+                {{ documentCountLabel() }}
+              }
+            </p>
+          </div>
+
+          <app-theme-toggle [compact]="true" />
+
+          <label [class]="uploadButtonClass()">
+            <span class="sr-only">Add PDF or EPUB documents</span>
+            <input
+              type="file"
+              class="sr-only"
+              accept=".pdf,.epub,application/pdf,application/epub+zip"
+              multiple
+              [disabled]="isUploading()"
+              (change)="onFileSelected($event)"
+            />
+            @if (isUploading()) {
+              <span
+                class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                aria-hidden="true"
+              ></span>
+            } @else {
+              <app-icon name="upload" size="sm" />
+            }
+            <span class="sm:hidden">{{ isUploading() ? 'Adding' : 'Add' }}</span>
+            <span class="hidden sm:inline">{{ isUploading() ? 'Adding…' : 'Add documents' }}</span>
+          </label>
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        @if (notice(); as currentNotice) {
+          <div
+            [class]="noticeClass(currentNotice.tone)"
+            role="status"
+            aria-live="polite"
+          >
+            <app-icon
+              [name]="currentNotice.tone === 'error' ? 'alert' : 'info'"
+              size="sm"
+            />
+            <p class="min-w-0 flex-1 leading-6">{{ currentNotice.message }}</p>
+            <button
+              type="button"
+              class="shrink-0 rounded-md p-1 text-current/70 transition-colors hover:bg-black/5 hover:text-current dark:hover:bg-white/10"
+              aria-label="Dismiss message"
+              (click)="notice.set(null)"
+            >
+              <app-icon name="x" size="sm" />
+            </button>
+          </div>
+        }
+
+        @if (isUploading()) {
+          <div
+            class="mb-5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900 dark:bg-blue-950/40"
+            role="status"
+            aria-live="polite"
+          >
+            <div class="flex items-center justify-between gap-3 text-xs font-medium">
+              <span class="text-blue-800 dark:text-blue-200">
+                Adding {{ uploadedFiles() }} of {{ totalFiles() }} documents…
+              </span>
+              <span class="tabular-nums text-blue-700 dark:text-blue-300">
+                {{ uploadProgressText() }}
+              </span>
+            </div>
+            <div
+              class="mt-2 h-1.5 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900"
+              role="progressbar"
+              aria-label="Upload progress"
+              [attr.aria-valuenow]="uploadProgress()"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div
+                class="h-full rounded-full bg-blue-600 transition-[width] duration-300 dark:bg-blue-400"
+                [style.width.%]="uploadProgress()"
+              ></div>
+            </div>
+          </div>
+        }
+
+        @if (libraryError(); as errorMessage) {
+          <div
+            class="mb-5 rounded-xl border border-red-200 bg-red-50/80 p-4 dark:border-red-900 dark:bg-red-950/50"
+            role="alert"
+          >
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 text-red-600 dark:text-red-400" aria-hidden="true">
+                <app-icon name="alert" size="sm" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-red-800 dark:text-red-200">
+                  The library could not be read
+                </p>
+                <p class="mt-0.5 text-xs leading-5 text-red-700 dark:text-red-300">
+                  {{ errorMessage }}
+                </p>
+              </div>
               <button
                 type="button"
-                (click)="clearAllPdfs()"
-                class="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-                aria-label="Clear all PDFs"
+                class="shrink-0 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/60"
+                (click)="refreshLibrary()"
               >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                  <path
-                    fill-rule="evenodd"
-                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
+                Retry
               </button>
-            }
+            </div>
+          </div>
+        }
 
-            <app-theme-toggle />
-
-            <label
-              class="cursor-pointer bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-gray-900"
-              [class.opacity-50]="isUploading()"
-              [class.cursor-not-allowed]="isUploading()"
+        @if (loading() && documents().length === 0) {
+          <div role="status" aria-live="polite">
+            <span class="sr-only">Loading documents</span>
+            <div
+              class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 sm:gap-5"
             >
-              <span class="sr-only">{{
-                isUploading() ? 'Uploading files...' : 'Upload PDF files'
-              }}</span>
+              @for (placeholder of skeletonItems; track placeholder) {
+                <div class="animate-pulse">
+                  <div class="aspect-[3/4] w-full rounded-xl bg-gray-200 dark:bg-gray-800"></div>
+                  <div class="mt-3 h-3 w-3/4 rounded bg-gray-200 dark:bg-gray-800"></div>
+                  <div class="mt-2 h-2.5 w-1/2 rounded bg-gray-200 dark:bg-gray-800"></div>
+                </div>
+              }
+            </div>
+          </div>
+        } @else if (documents().length === 0) {
+          <section
+            class="mx-auto max-w-2xl rounded-2xl border-2 border-dashed border-gray-300 bg-white/70 px-6 py-12 text-center dark:border-gray-700 dark:bg-gray-900/50"
+            [class.border-blue-400]="isDragOver()"
+            aria-label="Empty library"
+          >
+            <span
+              class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/70 dark:text-blue-300"
+              aria-hidden="true"
+            >
+              <app-icon name="upload" size="lg" />
+            </span>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Build your offline library
+            </h2>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">
+              Drop PDF or EPUB files anywhere on this page, or choose files below. Documents, covers
+              and reading positions are stored only on this device.
+            </p>
+            <label [class]="primaryButtonClass()">
+              <app-icon name="upload" size="sm" />
+              Choose files
               <input
                 type="file"
-                (change)="onFileSelected($event)"
-                accept=".pdf"
-                multiple
                 class="sr-only"
+                accept=".pdf,.epub,application/pdf,application/epub+zip"
+                multiple
                 [disabled]="isUploading()"
-                aria-label="Select PDF files to upload"
+                (change)="onFileSelected($event)"
               />
-              @if (isUploading()) {
-                <svg
-                  class="w-5 h-5 animate-spin"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-              } @else {
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                  <path
-                    fill-rule="evenodd"
-                    d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              }
+            </label>
+            <p class="mt-4 text-[11px] text-gray-400 dark:text-gray-500">
+              PDF and EPUB · up to 100 MB each · works offline
+            </p>
+          </section>
+        } @else {
+          <div
+            class="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-gray-300 bg-white/60 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400"
+            [class.border-blue-400]="isDragOver()"
+            [class.bg-blue-50]="isDragOver()"
+          >
+            <span class="flex min-w-0 items-center gap-2">
+              <app-icon name="upload" size="sm" />
+              <span class="truncate">Drag &amp; drop PDF or EPUB files here to add them</span>
+            </span>
+            <label class="shrink-0 font-semibold text-blue-700 hover:underline dark:text-blue-300">
+              Browse
+              <input
+                type="file"
+                class="sr-only"
+                accept=".pdf,.epub,application/pdf,application/epub+zip"
+                multiple
+                [disabled]="isUploading()"
+                (change)="onFileSelected($event)"
+              />
             </label>
           </div>
-        </header>
 
-        <!-- PDF Grid with Drag and Drop Reordering -->
-        <main>
-          @if (pdfs().length > 0) {
-            <ul
-              class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-15 gap-6 list-none p-0 m-0"
-              role="list"
-              aria-label="PDF documents"
+          <div class="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Your documents
+              </h2>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                Drag a cover to reorder. With a card focused, press Alt + arrow keys to move it.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:pointer-events-none disabled:opacity-40 dark:text-gray-400 dark:hover:bg-red-950/60 dark:hover:text-red-300"
+              [disabled]="isUploading()"
+              (click)="clearAllDocuments()"
             >
-              @for (pdf of pdfs(); track pdf.id; let i = $index) {
-                <li
-                  class="flex flex-col relative group transition-transform"
-                  [class.opacity-50]="draggedIndex() === i"
-                  [class.scale-105]="draggedIndex() === i"
-                  [class.z-10]="draggedIndex() === i"
-                  draggable="true"
-                  (dragstart)="onItemDragStart($event, i)"
-                  (dragend)="onItemDragEnd()"
-                  (dragover)="onItemDragOver($event, i)"
-                  (dragenter)="onItemDragEnter($event, i)"
-                  (dragleave)="onItemDragLeave($event, i)"
-                  (drop)="onItemDrop($event, i)"
-                  [attr.aria-label]="pdf.name + ', ' + formatFileSize(pdf.size)"
-                >
-                  <!-- Drag Handle -->
-                  <div
-                    class="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-hidden="true"
-                  >
-                    <div class="bg-black bg-opacity-50 text-white p-1 rounded cursor-move">
-                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          d="M7 2a2 2 0 011 2v12a2 2 0 11-2 0V4a2 2 0 011-2zM11 2a2 2 0 011 2v12a2 2 0 11-2 0V4a2 2 0 011-2z"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+              Clear library
+            </button>
+          </div>
 
-                  <!-- PDF Thumbnail with Title Overlay -->
+          <ul
+            class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 sm:gap-5"
+            role="list"
+            aria-label="Documents"
+          >
+            @for (document of documents(); track document.id; let i = $index) {
+              <li
+                class="group relative flex min-w-0 flex-col"
+                [class.opacity-50]="draggedIndex() === i"
+                [class.ring-2]="dragOverIndex() === i && draggedIndex() !== i"
+                [class.ring-blue-500]="dragOverIndex() === i && draggedIndex() !== i"
+                [class.rounded-xl]="dragOverIndex() === i && draggedIndex() !== i"
+                draggable="true"
+                (dragstart)="onItemDragStart($event, i)"
+                (dragend)="onItemDragEnd()"
+                (dragover)="onItemDragOver($event, i)"
+                (dragenter)="onItemDragEnter($event, i)"
+                (dragleave)="onItemDragLeave($event, i)"
+                (drop)="onItemDrop($event, i)"
+              >
+                <div class="relative">
                   <button
                     type="button"
                     draggable="false"
-                    class="relative bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 aspect-[3/4] w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-                    [class.shadow-xl]="draggedIndex() === i"
-                    [class.ring-2]="draggedIndex() === i"
-                    [class.ring-blue-500]="draggedIndex() === i"
-                    (click)="openPdf(pdf.id)"
+                    class="block w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-800 dark:bg-gray-900"
+                    [attr.aria-label]="'Open ' + getDisplayName(document) + ', ' + document.kind.toUpperCase()"
+                    (click)="openDocument(document)"
                     (dragover)="onItemDragOver($event, i)"
                     (drop)="onItemDrop($event, i)"
-                    [attr.aria-label]="'Open ' + pdf.name"
                   >
-                    <div class="w-full h-full flex items-center justify-center">
-                      @if (pdf.coverImage) {
+                    <span class="relative block aspect-[3/4] w-full bg-gray-100 dark:bg-gray-800">
+                      @if (document.coverImage) {
                         <img
-                          [src]="pdf.coverImage"
-                          [alt]="'Cover of ' + pdf.name"
-                          class="w-full h-full object-cover"
+                          [src]="document.coverImage"
+                          [alt]="'Cover of ' + getDisplayName(document)"
+                          class="h-full w-full object-cover"
+                          loading="lazy"
+                          draggable="false"
                         />
                       } @else {
-                        <div class="w-full h-full bg-red-600 flex items-center justify-center">
-                          <span class="text-white font-bold text-lg" aria-hidden="true">PDF</span>
-                        </div>
+                        <span
+                          class="flex h-full w-full items-center justify-center"
+                          [class.bg-emerald-800]="document.kind === 'epub'"
+                          [class.bg-red-800]="document.kind === 'pdf'"
+                        >
+                          <span class="text-xs font-bold tracking-wider text-white/90">
+                            {{ document.kind.toUpperCase() }}
+                          </span>
+                        </span>
                       }
-                    </div>
-                    <!-- Title Overlay -->
-                    <div
-                      class="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 via-black/70 to-transparent text-white p-2.5"
-                    >
-                      <h2
-                        class="text-[10px] font-medium leading-tight truncate drop-shadow-sm"
-                        [title]="pdf.name"
+
+                      <span
+                        class="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-white shadow-sm"
+                        [class.bg-emerald-700]="document.kind === 'epub'"
+                        [class.bg-red-700]="document.kind === 'pdf'"
                       >
-                        {{ pdf.name }}
-                      </h2>
-                    </div>
+                        {{ document.kind.toUpperCase() }}
+                      </span>
+
+                      <span
+                        class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-950/85 to-transparent px-2.5 pb-2 pt-6 text-left text-[11px] font-semibold text-white"
+                        [attr.title]="progressTitle(document)"
+                      >
+                        @if (hasProgress(document)) {
+                          {{ positionLabel(document) }}
+                        }
+                      </span>
+                    </span>
                   </button>
-                  <!-- File Info -->
-                  <div
-                    class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400"
-                    (dragover)="onItemDragOver($event, i)"
-                    (drop)="onItemDrop($event, i)"
+
+                  <button
+                    type="button"
+                    class="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md bg-gray-950/55 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-600 focus-visible:opacity-100 group-hover:opacity-100"
+                    [attr.aria-label]="'Delete ' + getDisplayName(document)"
+                    (click)="deleteDocument(document, $event)"
                   >
-                    <div class="flex items-center">
-                      <svg
-                        class="w-2.5 h-2.5 mr-1"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                      <span>PDF {{ formatFileSize(pdf.size) }}</span>
-                    </div>
-                    <button
-                      type="button"
-                      (click)="deletePdf(pdf.id, $event)"
-                      class="cursor text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors focus:outline-none focus:text-red-600 dark:focus:text-red-400"
-                      [attr.aria-label]="'Delete ' + pdf.name"
-                    >
-                      <svg
-                        class="w-3 h-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                    </button>
+                    <app-icon name="trash" size="xs" />
+                  </button>
+
+                  <button
+                    type="button"
+                    class="absolute left-2 top-2 z-10 inline-flex h-7 w-7 cursor-grab items-center justify-center rounded-md bg-gray-950/55 text-white opacity-0 backdrop-blur transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                    [attr.aria-label]="'Reorder ' + getDisplayName(document)"
+                    [attr.title]="'Drag to reorder, or press Alt + arrow keys'"
+                    [attr.data-reorder-id]="document.id"
+                    (keydown)="onReorderKeydown($event, i)"
+                  >
+                    <app-icon name="more" size="xs" />
+                  </button>
+                </div>
+
+                <div class="mt-2 min-w-0">
+                  <h3
+                    class="truncate text-sm font-medium text-gray-900 dark:text-gray-100"
+                    [attr.title]="getDisplayName(document)"
+                  >
+                    {{ getDisplayName(document) }}
+                  </h3>
+                  @if (authorOf(document); as author) {
+                    <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ author }}</p>
+                  }
+                  <div class="mt-0.5 flex items-center justify-between gap-2 text-[11px]">
+                    <span class="truncate text-gray-500 dark:text-gray-400">
+                      {{ document.kind.toUpperCase() }} · {{ formatFileSize(document.size) }}
+                    </span>
+                    <span class="shrink-0 tabular-nums text-gray-500 dark:text-gray-400">
+                      {{ positionLabel(document) }}
+                    </span>
                   </div>
-                </li>
-              }
-            </ul>
-          } @else {
-            <div class="text-center py-12" role="status">
-              <svg
-                class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
-                stroke="currentColor"
-                fill="none"
-                viewBox="0 0 48 48"
-                aria-hidden="true"
-              >
-                <path
-                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              <h2 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                No PDFs uploaded
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Get started by uploading your first PDF. You can select multiple files at once!
-              </p>
-              <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                Drag and drop PDF files here or click the upload button above.
-              </p>
-            </div>
-          }
-        </main>
-      </div>
+                  @if (document.kind === 'epub' && (document.epubProgress ?? 0) > 0) {
+                    <div
+                      class="mt-1.5 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800"
+                      role="progressbar"
+                      aria-label="Saved reading progress"
+                      [attr.aria-valuenow]="epubPercent(document)"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                    >
+                      <div
+                        class="h-full rounded-full bg-emerald-600 dark:bg-emerald-500"
+                        [style.width.%]="epubPercent(document)"
+                      ></div>
+                    </div>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+
+        <p class="sr-only" aria-live="polite">{{ reorderAnnouncement() }}</p>
+      </main>
     </div>
   `,
 })
 export class HomeComponent {
-  private readonly pdfService = inject(PdfService);
+  private readonly documentService = inject(DocumentService);
   private readonly router = inject(Router);
 
-  readonly pdfs = this.pdfService.pdfs;
+  readonly documents = this.documentService.documents;
+  readonly loading = this.documentService.loading;
+  readonly libraryError = this.documentService.libraryError;
+
   readonly draggedIndex = signal<number | null>(null);
   readonly dragOverIndex = signal<number | null>(null);
   readonly isDragOver = signal(false);
@@ -303,28 +432,35 @@ export class HomeComponent {
   readonly uploadProgress = signal(0);
   readonly totalFiles = signal(0);
   readonly uploadedFiles = signal(0);
+  readonly notice = signal<LibraryNotice | null>(null);
+  readonly reorderAnnouncement = signal('');
 
-  // Computed signals
-  readonly uploadProgressText = computed(() => `${this.uploadProgress().toFixed(0)}%`);
+  readonly uploadProgressText = computed(() => `${Math.round(this.uploadProgress())}%`);
+  readonly documentCountLabel = computed(() => {
+    const count = this.documents().length;
+    return `${count} ${count === 1 ? 'document' : 'documents'} · stored on this device`;
+  });
+  readonly skeletonItems = Array.from({ length: 8 }, (_, index) => index);
 
-  // Global drag and drop handlers (bound via host object)
   onGlobalDragOver(event: DragEvent): void {
+    if (!this.isFileDrag(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
-
-    if (event.dataTransfer?.types.includes('Files')) {
+    if (event.dataTransfer) {
       event.dataTransfer.dropEffect = 'copy';
-      this.isDragOver.set(true);
     }
+    this.isDragOver.set(true);
   }
 
   onGlobalDragEnter(event: DragEvent): void {
+    if (!this.isFileDrag(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
-
-    if (event.dataTransfer?.types.includes('Files')) {
-      this.isDragOver.set(true);
-    }
+    this.isDragOver.set(true);
   }
 
   onGlobalDragLeave(event: DragEvent): void {
@@ -332,23 +468,25 @@ export class HomeComponent {
     event.stopPropagation();
 
     const currentTarget = event.currentTarget as Element | null;
-    if (!currentTarget?.contains(event.relatedTarget as Node)) {
+    if (!currentTarget?.contains(event.relatedTarget as Node | null)) {
       this.isDragOver.set(false);
     }
   }
 
   onGlobalDrop(event: DragEvent): void {
+    if (!this.isFileDrag(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     this.isDragOver.set(false);
 
-    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
-      const files = Array.from(event.dataTransfer.files);
-      void this.uploadMultipleFiles(files);
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length > 0) {
+      void this.uploadFiles(files);
     }
   }
 
-  // Item reordering drag and drop handlers
   onItemDragStart(event: DragEvent, index: number): void {
     this.draggedIndex.set(index);
     if (event.dataTransfer) {
@@ -367,6 +505,11 @@ export class HomeComponent {
     event.stopPropagation();
     if (this.draggedIndex() !== null && this.draggedIndex() !== index && event.dataTransfer) {
       event.dataTransfer.dropEffect = 'move';
+    } else if (this.isFileDrag(event)) {
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy';
+      }
+      this.isDragOver.set(true);
     }
   }
 
@@ -391,113 +534,261 @@ export class HomeComponent {
     event.stopPropagation();
 
     const currentDraggedIndex = this.draggedIndex();
-    if (currentDraggedIndex !== null && currentDraggedIndex !== dropIndex) {
-      this.reorderPdfs(currentDraggedIndex, dropIndex);
+    if (currentDraggedIndex === null) {
+      const files = Array.from(event.dataTransfer?.files ?? []);
+      this.isDragOver.set(false);
+      if (files.length > 0) {
+        void this.uploadFiles(files);
+      }
+      return;
+    }
+
+    if (currentDraggedIndex !== dropIndex) {
+      this.documentService.reorderDocuments(currentDraggedIndex, dropIndex);
+      this.announceReorder(currentDraggedIndex, dropIndex);
     }
 
     this.draggedIndex.set(null);
     this.dragOverIndex.set(null);
   }
 
-  private reorderPdfs(fromIndex: number, toIndex: number): void {
-    this.pdfService.reorderPdfs(fromIndex, toIndex);
-  }
-
-  private async uploadFile(file: File): Promise<void> {
-    if (!this.pdfService.validatePdfFile(file)) {
-      alert(`Please select a valid PDF file (max 100MB): ${file.name}`);
+  onReorderKeydown(event: KeyboardEvent, index: number): void {
+    if (!event.altKey) {
       return;
     }
 
-    try {
-      console.log('Uploading PDF:', file.name, 'Size:', file.size);
-      const id = await this.pdfService.uploadPdf(file);
-      console.log('PDF uploaded successfully with ID:', id);
-    } catch (error) {
-      console.error('Error uploading PDF:', error);
-      alert(`Failed to upload PDF: ${file.name}. Please try again.`);
+    const delta = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : 0;
+    if (delta === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    const target = index + delta;
+    if (target < 0 || target >= this.documents().length) {
+      return;
+    }
+
+    const id = this.documents()[index]?.id;
+    this.documentService.moveDocument(index, target);
+    this.announceReorder(index, target);
+
+    if (id) {
+      queueMicrotask(() => {
+        window.document
+          .querySelector<HTMLElement>(`[data-reorder-id="${CSS.escape(id)}"]`)
+          ?.focus();
+      });
     }
   }
 
   async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const files = Array.from(input.files);
-      await this.uploadMultipleFiles(files);
-      input.value = '';
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (files.length > 0) {
+      await this.uploadFiles(files);
     }
   }
 
-  private async uploadMultipleFiles(files: File[]): Promise<void> {
-    const validFiles = files.filter((file) => this.pdfService.validatePdfFile(file));
-    const invalidFiles = files.filter((file) => !this.pdfService.validatePdfFile(file));
+  openDocument(document: DocumentListItem): void {
+    const route = document.kind === 'epub' ? '/epub-viewer' : '/viewer';
+    void this.router.navigate([route, document.id]);
+  }
+
+  getDisplayName(document: DocumentListItem): string {
+    return this.documentService.getDisplayName(document);
+  }
+
+  authorOf(document: DocumentListItem): string | undefined {
+    return this.documentService.getAuthor(document);
+  }
+
+  formatFileSize = formatFileSize;
+
+  positionLabel(document: DocumentListItem): string {
+    return document.kind === 'epub'
+      ? formatEpubPosition(document.epubProgress)
+      : formatPdfPosition(document.currentPage);
+  }
+
+  progressTitle(document: DocumentListItem): string {
+    if (document.kind === 'epub') {
+      return document.epubChapter
+        ? `Saved place: ${document.epubChapter} (${formatEpubPosition(document.epubProgress)})`
+        : formatEpubPosition(document.epubProgress);
+    }
+    return formatPdfPosition(document.currentPage);
+  }
+
+  epubPercent(document: DocumentListItem): number {
+    return progressFractionToPercent(document.epubProgress);
+  }
+
+  hasProgress(document: DocumentListItem): boolean {
+    return document.kind === 'epub'
+      ? (document.epubProgress ?? 0) > 0
+      : (document.currentPage ?? 0) > 0;
+  }
+
+  async deleteDocument(document: DocumentListItem, event: Event): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!confirm(`Delete “${this.getDisplayName(document)}” from this device?`)) {
+      return;
+    }
+
+    try {
+      await this.documentService.deleteDocument(document.id);
+      this.notice.set({ tone: 'success', message: `Deleted “${this.getDisplayName(document)}”.` });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      this.notice.set({
+        tone: 'error',
+        message: 'The document could not be deleted. Please try again.',
+      });
+    }
+  }
+
+  async clearAllDocuments(): Promise<void> {
+    const count = this.documents().length;
+    if (!confirm(`Delete all ${count} documents from this device? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await this.documentService.deleteAllDocuments();
+      this.notice.set({ tone: 'success', message: 'The library is now empty.' });
+    } catch (error) {
+      console.error('Error clearing the library:', error);
+      this.notice.set({
+        tone: 'error',
+        message: 'Some documents could not be deleted. Please try again.',
+      });
+    }
+  }
+
+  async refreshLibrary(): Promise<void> {
+    await this.documentService.refresh();
+  }
+
+  protected uploadButtonClass(): string {
+    const base =
+      'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 sm:px-3.5 sm:text-sm';
+    return this.isUploading() ? `${base} pointer-events-none opacity-60` : base;
+  }
+
+  protected primaryButtonClass(): string {
+    const base =
+      'mt-5 inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700';
+    return this.isUploading() ? `${base} pointer-events-none opacity-60` : base;
+  }
+
+  protected noticeClass(tone: NoticeTone): string {
+    const base = 'mb-4 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm';
+    switch (tone) {
+      case 'error':
+        return `${base} border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200`;
+      case 'success':
+        return `${base} border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200`;
+      default:
+        return `${base} border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200`;
+    }
+  }
+
+  private async uploadFiles(files: File[]): Promise<void> {
+    if (this.isUploading() || files.length === 0) {
+      return;
+    }
+
+    this.notice.set(null);
+
+    const validation = await Promise.all(
+      files.map(async (file) => ({
+        file,
+        valid: await this.documentService.validateDocumentFile(file),
+      })),
+    );
+    const validFiles = validation.filter((entry) => entry.valid).map((entry) => entry.file);
+    const invalidFiles = validation.filter((entry) => !entry.valid).map((entry) => entry.file);
 
     if (invalidFiles.length > 0) {
-      const invalidFileNames = invalidFiles.map((f) => f.name).join(', ');
-      alert(`The following files are not valid PDFs or exceed 100MB: ${invalidFileNames}`);
+      const names = invalidFiles.map((file) => truncate(file.name, 40)).join(', ');
+      this.notice.set({
+        tone: 'error',
+        message: `Skipped ${invalidFiles.length} ${
+          invalidFiles.length === 1 ? 'file' : 'files'
+        } (${names}). Only unencrypted PDF and EPUB files up to 100 MB are supported.`,
+      });
     }
 
     if (validFiles.length === 0) {
       return;
     }
 
-    if (validFiles.length === 1) {
-      await this.uploadFile(validFiles[0]);
-      return;
-    }
-
-    console.log(`Starting batch upload of ${validFiles.length} PDFs`);
     this.isUploading.set(true);
     this.totalFiles.set(validFiles.length);
     this.uploadedFiles.set(0);
     this.uploadProgress.set(0);
 
-    const uploadPromises = validFiles.map(async (file, index) => {
-      try {
-        console.log(
-          `Uploading PDF ${index + 1}/${validFiles.length}:`,
-          file.name,
-          'Size:',
-          file.size,
-        );
-        const id = await this.pdfService.uploadPdf(file, { refresh: false });
-        console.log(`PDF ${index + 1} uploaded successfully with ID:`, id);
-
-        this.uploadedFiles.update((count) => count + 1);
-        this.uploadProgress.set((this.uploadedFiles() / this.totalFiles()) * 100);
-
-        return { success: true, file: file.name, id };
-      } catch (error) {
-        console.error(`Error uploading PDF ${index + 1}:`, error);
-
-        this.uploadedFiles.update((count) => count + 1);
-        this.uploadProgress.set((this.uploadedFiles() / this.totalFiles()) * 100);
-
-        return { success: false, file: file.name, error };
-      }
-    });
+    const failures: string[] = [];
+    let completed = 0;
 
     try {
-      const results = await Promise.all(uploadPromises);
-      const successful = results.filter((r) => r.success);
-      const failed = results.filter((r) => !r.success);
+      await Promise.all(
+        validFiles.map(async (file) => {
+          try {
+            await this.documentService.uploadDocument(file, { refresh: false });
+          } catch (error) {
+            console.error('Could not add document:', file.name, error);
+            failures.push(file.name);
+          } finally {
+            completed += 1;
+            this.uploadedFiles.set(completed);
+            this.uploadProgress.set((completed / validFiles.length) * 100);
+          }
+        }),
+      );
 
-      if (successful.length > 0) {
-        await this.pdfService.refresh();
-        console.log(
-          `Batch upload completed: ${successful.length} successful, ${failed.length} failed`,
-        );
-      }
+      await this.documentService.refresh();
 
-      if (failed.length > 0) {
-        const failedFileNames = failed.map((f) => f.file).join(', ');
-        alert(
-          `Failed to upload some files: ${failedFileNames}. Please try uploading them individually.`,
-        );
+      if (failures.length > 0) {
+        const names = failures.map((name) => truncate(name, 40)).join(', ');
+        const skipped = invalidFiles.length
+          ? ` ${invalidFiles.length} more ${
+              invalidFiles.length === 1 ? 'file was' : 'files were'
+            } skipped before upload.`
+          : '';
+        this.notice.set({
+          tone: 'error',
+          message: `Could not add ${names}. The ${
+            failures.length === 1 ? 'file may be' : 'files may be'
+          } corrupt, encrypted, or unsupported.${skipped}`,
+        });
+      } else if (invalidFiles.length > 0) {
+        const names = invalidFiles.map((file) => truncate(file.name, 40)).join(', ');
+        this.notice.set({
+          tone: 'info',
+          message: `Added ${validFiles.length} ${
+            validFiles.length === 1 ? 'document' : 'documents'
+          }. Skipped ${invalidFiles.length} ${
+            invalidFiles.length === 1 ? 'file' : 'files'
+          } (${names}) because only unencrypted PDF and EPUB files up to 100 MB are supported.`,
+        });
+      } else {
+        this.notice.set({
+          tone: 'success',
+          message: `Added ${validFiles.length} ${
+            validFiles.length === 1 ? 'document' : 'documents'
+          } to your library.`,
+        });
       }
     } catch (error) {
-      console.error('Error during batch upload:', error);
-      alert('An error occurred during batch upload. Please try again.');
+      console.error('Error during upload:', error);
+      this.notice.set({
+        tone: 'error',
+        message: 'The upload could not be completed. Please try again.',
+      });
     } finally {
       this.isUploading.set(false);
       this.uploadProgress.set(0);
@@ -506,43 +797,19 @@ export class HomeComponent {
     }
   }
 
-  openPdf(id: string): void {
-    void this.router.navigate(['/viewer', id]);
+  private isFileDrag(event: DragEvent): boolean {
+    return Array.from(event.dataTransfer?.types ?? []).includes('Files');
   }
 
-  formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
-  async deletePdf(id: string, event: Event): Promise<void> {
-    event.stopPropagation();
-    if (confirm('Are you sure to delete this PDF?')) {
-      try {
-        await this.pdfService.deletePdf(id);
-        console.log('PDF deleted successfully with ID:', id);
-      } catch (error) {
-        console.error('Error deleting PDF:', error);
-        alert('Failed to delete PDF. Please try again.');
-      }
+  private announceReorder(fromIndex: number, toIndex: number): void {
+    const document = this.documents()[fromIndex];
+    if (!document) {
+      return;
     }
-  }
-
-  async clearAllPdfs(): Promise<void> {
-    const pdfCount = this.pdfs().length;
-    if (
-      confirm(`Are you sure you want to delete all ${pdfCount} PDFs? This action cannot be undone.`)
-    ) {
-      try {
-        await this.pdfService.deleteAllPdfs();
-        console.log('All PDFs deleted successfully');
-      } catch (error) {
-        console.error('Error deleting all PDFs:', error);
-        alert('Failed to delete some PDFs. Please try again.');
-      }
-    }
+    this.reorderAnnouncement.set(
+      `${this.getDisplayName(document)} moved to position ${toIndex + 1} of ${
+        this.documents().length
+      }.`,
+    );
   }
 }

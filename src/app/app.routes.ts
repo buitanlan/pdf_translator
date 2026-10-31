@@ -10,5 +10,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./components/pdf-viewer/pdf-viewer.component').then((m) => m.PdfViewerComponent),
   },
+  {
+    path: 'epub-viewer/:id',
+    loadComponent: () =>
+      import('./components/epub-viewer/epub-viewer.component').then((m) => m.EpubViewerComponent),
+  },
   { path: '**', redirectTo: '' },
 ];

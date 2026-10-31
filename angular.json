@@ -39,6 +39,7 @@
             ],
             "styles": ["src/styles.css"],
             "scripts": [],
+            "allowedCommonJsDependencies": ["jszip"],
             "serviceWorker": "ngsw-config.json"
           },
           "configurations": {
@@ -88,27 +89,11 @@
           }
         },
         "test": {
-          "builder": "@angular/build:karma",
+          "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "inlineStyleLanguage": "css",
-            "assets": [
-              "src/favicon.ico",
-              "src/manifest.webmanifest",
-              "src/assets",
-              {
-                "glob": "**/*",
-                "input": "node_modules/ngx-extended-pdf-viewer/assets/",
-                "output": "assets"
-              },
-              {
-                "glob": "**/*",
-                "input": "node_modules/ngx-extended-pdf-viewer/assets/",
-                "output": "assets/assets"
-              }
-            ],
-            "styles": ["src/styles.css"],
-            "scripts": []
+            "runner": "vitest",
+            "buildTarget": "pdf-translator:build:development"
           }
         }
       }

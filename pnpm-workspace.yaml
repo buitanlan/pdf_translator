@@ -1,9 +1,13 @@
 allowBuilds:
   '@parcel/watcher': true
   '@tailwindcss/oxide': true
+  core-js: false
+  es5-ext: false
   esbuild: true
   lmdb: true
   msgpackr-extract: true
+overrides:
+  '@jridgewell/sourcemap-codec': 1.6.0
 minimumReleaseAgeExclude:
   - '@angular/animations@22.0.8 || 22.1.4'
   - '@angular/common@22.0.8 || 22.1.4'
@@ -36,4 +40,4 @@ minimumReleaseAgeExclude:
   - '@oxfmt/binding-win32-x64-msvc@0.60.0'
   - oxfmt@0.60.0
   - postcss@8.5.22
-  - '@types/node@26.4.0'
+  - '@types/node@26.4.0 || 26.6.2'
