@@ -8,6 +8,9 @@ import {
   flattenToc,
   isValidEpubCfi,
   normalizeEpubHref,
+  removeTranslationGuards,
+  sanitizeLanguageTag,
+  splitEpubHref,
   toSearchMatch,
 } from './epub.utils';
 
@@ -94,5 +97,32 @@ describe('EPUB utils', () => {
     expect(clampEpubProgress(42.4)).toBe(42);
     expect(clampEpubProgress(-1)).toBe(0);
     expect(clampEpubProgress(1000)).toBe(100);
+  });
+
+  it('accepts safe language tags and splits hrefs with fragments', () => {
+    expect(sanitizeLanguageTag('fr')).toBe('fr');
+    expect(sanitizeLanguageTag('pt-BR')).toBe('pt-BR');
+    expect(sanitizeLanguageTag('')).toBeUndefined();
+    expect(sanitizeLanguageTag('<script>')).toBeUndefined();
+    expect(splitEpubHref('Text/chapter.xhtml#part%20a')).toEqual({
+      path: 'Text/chapter.xhtml',
+      fragment: 'part a',
+    });
+    expect(splitEpubHref('Text/chapter.xhtml')).toEqual({
+      path: 'Text/chapter.xhtml',
+      fragment: '',
+    });
+  });
+
+  it('strips translation blockers from book markup', () => {
+    const element = document.createElement('p');
+    element.setAttribute('translate', 'no');
+    element.classList.add('notranslate', 'chapter');
+    element.setAttribute('data-notranslate', '');
+    removeTranslationGuards(element);
+    expect(element.hasAttribute('translate')).toBe(false);
+    expect(element.hasAttribute('data-notranslate')).toBe(false);
+    expect(element.classList.contains('notranslate')).toBe(false);
+    expect(element.classList.contains('chapter')).toBe(true);
   });
 });

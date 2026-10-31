@@ -6,6 +6,7 @@ export type IconName =
   | 'chevron-down'
   | 'chevron-left'
   | 'chevron-right'
+  | 'columns'
   | 'download'
   | 'expand'
   | 'contract'
@@ -19,6 +20,7 @@ export type IconName =
   | 'moon'
   | 'more'
   | 'plus'
+  | 'scroll'
   | 'search'
   | 'settings'
   | 'sun'
@@ -74,6 +76,14 @@ export type IconName =
         @case ('search') {
           <circle cx="11" cy="11" r="7" />
           <path d="M20 20l-4.2-4.2" />
+        }
+        @case ('scroll') {
+          <path d="M8 4h11a2 2 0 012 2v12a2 2 0 01-2 2H8" />
+          <path d="M5 8v8M2 10l3-3 3 3M2 14l3 3 3-3" />
+        }
+        @case ('columns') {
+          <rect x="3" y="4" width="8" height="16" rx="1" />
+          <rect x="13" y="4" width="8" height="16" rx="1" />
         }
         @case ('x') {
           <path d="M6 6l12 12M18 6L6 18" />

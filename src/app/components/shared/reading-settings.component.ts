@@ -58,6 +58,35 @@ const THEMES: ReadonlyArray<{ id: ReadingTheme; label: string; swatch: string }>
           </div>
 
           <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+            <section aria-labelledby="setting-layout">
+              <h3
+                id="setting-layout"
+                class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+              >
+                Layout
+              </h3>
+              <div class="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+                <button
+                  type="button"
+                  class="rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
+                  [class]="segmentedClass(preferences.flow() === 'paginated')"
+                  [attr.aria-pressed]="preferences.flow() === 'paginated'"
+                  (click)="preferences.setFlow('paginated')"
+                >
+                  Pages
+                </button>
+                <button
+                  type="button"
+                  class="rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
+                  [class]="segmentedClass(preferences.flow() === 'scrolled')"
+                  [attr.aria-pressed]="preferences.flow() === 'scrolled'"
+                  (click)="preferences.setFlow('scrolled')"
+                >
+                  Continuous scroll
+                </button>
+              </div>
+            </section>
+
             <section aria-labelledby="setting-text-size">
               <h3
                 id="setting-text-size"
@@ -177,9 +206,8 @@ const THEMES: ReadonlyArray<{ id: ReadingTheme; label: string; swatch: string }>
                 id="setting-zoom"
                 class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
               >
-                Page zoom
-              </h3>
-              <div
+                Text zoom
+              </h3>              <div
                 class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-2 py-1.5 dark:border-gray-700"
               >
                 <button

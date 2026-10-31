@@ -190,3 +190,47 @@ export function toSearchMatch(
 export function clampEpubProgress(percentage: number | null | undefined): number {
   return clampPercent(percentage);
 }
+
+/**
+ * Keep only plausible BCP-47 tags from EPUB metadata. The value is exposed as
+ * the document language while the reader is open so browser translation can
+ * identify the source language.
+ */
+export function sanitizeLanguageTag(value: string | null | undefined): string | undefined {
+  const tag = (value ?? '').trim();
+  if (!tag || tag.length > 35) {
+    return undefined;
+  }
+  return /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/i.test(tag) ? tag : undefined;
+}
+
+/** Split an EPUB href into a normalised path and a decoded fragment. */
+export function splitEpubHref(href: string | null | undefined): {
+  path: string;
+  fragment: string;
+} {
+  const value = (href ?? '').trim();
+  const hashIndex = value.indexOf('#');
+  if (hashIndex === -1) {
+    return { path: normalizeEpubHref(value), fragment: '' };
+  }
+
+  let fragment = value.slice(hashIndex + 1);
+  try {
+    fragment = decodeURIComponent(fragment);
+  } catch {
+    // keep the raw fragment
+  }
+
+  return { path: normalizeEpubHref(value.slice(0, hashIndex)), fragment };
+}
+
+/**
+ * Remove translation blockers that publishers sometimes add. Book text must
+ * remain eligible for the browser's page translation feature.
+ */
+export function removeTranslationGuards(element: Element): void {
+  element.removeAttribute('translate');
+  element.classList.remove('notranslate');
+  element.removeAttribute('data-notranslate');
+}

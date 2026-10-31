@@ -34,16 +34,25 @@ navigation sidebar, neutral reading canvas and restrained surfaces. PDF renderin
 ### EPUB reader (`/epub-viewer/:id`)
 
 - `@likecoin/epub-ts` browser build with bundled typings and EPUB 2/3 navigation.
-- Nested table of contents, fragment links and previous/next page navigation.
+- Two reading layouts, switchable without losing the reading position:
+  - **Pages**: real viewport pages via CSS columns. Previous/Next moves one rendered page and
+    crosses into the next chapter only at the chapter's last page.
+  - **Continuous scroll**: vertical scrolling across consecutive chapters with native wheel,
+    trackpad, touch and keyboard scrolling.
+- Nested table of contents, fragment links, chapter navigation, previous/next page navigation,
+  and recalculation of pagination after typography/viewport changes.
 - Full-book search with chapter labels, excerpts and CFI navigation to each match.
-- Reading settings: text size, line spacing, serif/sans typeface, page zoom and
+- Reading settings: layout, text size, line spacing, serif/sans typeface, text zoom and
   light/sepia/dark reading themes.
 - Fullscreen, download, and CFI-based position saving/restoration with chapter and
-  percentage progress (no fake "page numbers" for reflowable books).
-- EPUB content is rendered in a sandboxed iframe with scripts disabled
-  (`allowScriptedContent: false`).
-- Keyboard shortcuts: `←`/`PageUp`, `→`/`PageDown`, `/` to search, `Esc` to close panels.
-  Shortcuts never fire while typing in an input or inside editable content.
+  percentage progress, plus a page counter inside the current chapter.
+- Book text is rendered as sanitized, selectable HTML in the main document's light DOM (not an
+  iframe or canvas). Embedded scripts, frames, event handlers and `javascript:` URLs are removed;
+  EPUB scripts are disabled and never executed.
+- Publisher styles are loaded into scoped `@scope` layers so they cannot leak into the app shell.
+- Keyboard shortcuts: `←`/`PageUp`, `→`/`PageDown`, `/` to search, `Esc` to close panels. In
+  continuous mode, arrow keys, `PageUp`/`PageDown`, `Space`, `Home` and `End` scroll the reading
+  area. Shortcuts never fire while typing in an input or inside editable content.
 
 ### Shared
 
@@ -84,8 +93,11 @@ Open `http://localhost:4200`.
 
 | Context | Keys | Action |
 | --- | --- | --- |
-| EPUB | `←` / `PageUp` | Previous page |
-| EPUB | `→` / `PageDown` | Next page |
+| EPUB pages | `←` / `PageUp` | Previous page |
+| EPUB pages | `→` / `PageDown` / `Space` | Next page |
+| EPUB continuous | `↑` / `↓` | Scroll a line |
+| EPUB continuous | `PageUp` / `PageDown`, `Space` | Scroll one viewport |
+| EPUB continuous | `Home` / `End` | Jump to start/end |
 | EPUB | `/` | Open in-book search |
 | EPUB | `Esc` | Close search/contents/settings |
 | Library | `Alt` + arrow keys | Move the focused card |
@@ -130,19 +142,46 @@ src/
 `epubjs` has been removed. The only EPUB dependency is `@likecoin/epub-ts@0.7.3`, used through
 its browser ESM entry point and generated TypeScript declarations:
 
-- `Book`, `Rendition`, `Contents`, `Location`, `NavItem` and `SearchResult` types come from the
+- `Book`, `Section`, `EpubCFI`, `Location`, `NavItem` and `SearchResult` types come from the
   package — there are no `any` casts and strict mode remains enabled.
-- `book.opened`, `book.loaded.metadata`, `book.loaded.navigation`, `rendition.relocated`,
-  `rendition.currentLocation()` and `book.locations.percentageFromCfi()` were checked against
+- `book.opened`, `book.loaded.navigation`, `book.locations.percentageFromCfi()`,
+  `Section.load()`, `Section.find()` and `EpubCFI.toRange()` / `fromRange()` were checked against
   the installed version.
 - Metadata and cover extraction in `DocumentService` use the same package.
-- Books, renditions, content hooks, timers, resize observers, fullscreen listeners and object
-  URLs are torn down on navigation; stale async operations are ignored through load/search
-  tokens.
-- Malformed CFIs are validated before use. If a saved CFI is stale, the reader falls back to the
-  saved chapter or percentage; if no safe fallback exists it opens at the start and **does not
+- EPUB sections, manifest resources, navigation and CFI maths are provided by `epub-ts`. The
+  reading surface itself is light DOM so browser page translation can access the text (an iframe
+  or canvas would hide it from translation tools). Page turns move the rendered viewport (CSS
+  columns); they do not jump the spine, and chapter changes happen only at page boundaries.
+- CSS from the book is injected under `@scope (.epub-content)` inside a low-priority cascade
+  layer. JavaScript is removed, other active content is neutralised, and images/fonts are resolved
+  to local blob URLs from the EPUB archive.
+- Books, resource URLs, content observers, scroll/resize listeners, timers, style sheets,
+  fullscreen listeners and object URLs are torn down on navigation; stale async operations are
+  ignored through load/search tokens.
+- Invalid saved CFIs are validated before use. If a saved CFI is stale, the reader falls back to
+  the saved chapter or percentage; if no safe fallback exists it opens at the start and **does not
   overwrite** the saved position until the reader navigates. A corrupt archive cannot surface as
   an unhandled rejection.
+
+## Browser translation
+
+The EPUB surface is designed so browser page translation can detect and translate the book text:
+
+- Book HTML is rendered into the **main document light DOM**, not an iframe, canvas or image.
+- The document language is set from EPUB metadata while a book is open (for example `lang="fr"`)
+  and restored when leaving the reader. The content container carries the same `lang` and `dir`.
+- Publisher `translate="no"` attributes and `notranslate` classes are stripped, and the app does
+  not add any.
+- Browser translation mutations are observed without re-rendering the book. Pagination and layout
+  are recalculated, so translated text remains scrollable and navigable.
+- No Google Translate API is used and no book text is sent to a translation service by the app.
+
+**Verification status:** Chrome's real “Translate this page” UI/service could not be exercised in
+the headless test environment. This is reported as unverified rather than claimed. What was
+verified automatically: a non-French/English EPUB opened with the correct language metadata, all
+book text present as selectable light-DOM text with no iframe/canvas/translate blockers, and a
+DOM-mutation simulation of translator-style text replacement that remained page-navigable,
+scrollable, theme/typography-safe and position-restorable.
 
 ## Development
 
@@ -155,7 +194,8 @@ pnpm run watch      # development build in watch mode
 
 The test target uses `@angular/build:unit-test` with Vitest and jsdom. Regression tests cover
 progress formatting, file sizes, shortcut guards, CFI validation, TOC flattening/active entry
-resolution, href normalisation, search excerpt cleanup and deduplication.
+resolution, href/fragment normalisation, language tags, translation-guard removal, search excerpt
+cleanup and deduplication.
 
 ## Browser support
 
@@ -169,14 +209,19 @@ and ArrayBuffer. Service workers and installability use the Angular PWA setup.
 - PDF covers are placeholders until the PDF is opened once, because thumbnails are generated by
   the local PDF.js viewer instance rather than a separate PDF engine.
 - Fixed-layout EPUB support depends on `epub-ts`; complex/quirky publisher CSS may render
-  differently from a dedicated e-reader.
+  differently from a dedicated e-reader. All spine sections are prepared when a book opens, so
+  unusually large illustrated books can take longer to open and use more memory.
+- Browser page translation depends on the browser (and, for Chrome, its translation service).
+  Actual “Translate this page” detection is **unverified** in this environment; see the Browser
+  translation section for what was checked.
 - `pdfviewer.net` could not be fully inspected from this environment (the site returned only its
   shell/title). The implementation follows the explicit design direction in the task: compact
   toolbar, collapsible navigation, grouped controls, neutral document canvas, and document-first
   layout. It is not claimed to be pixel-identical to that site.
-- Automated checks cover the reading flows in a desktop Chromium run (upload, PDF/EPUB rendering,
-  navigation, search, restore, mobile layout, both themes). Other browsers and screen readers
-  were not available for automated testing.
+- Automated checks cover the reading flows in desktop and mobile Chromium runs (upload, PDF/EPUB
+  rendering, paginated and continuous reading, navigation, search, restore, themes, translation
+  mutation simulation). Other browsers, real screen readers and Chrome's translation UI were not
+  available for automated testing.
 
 ## License
 

@@ -3,6 +3,7 @@ import { clamp } from '../utils/reader.utils';
 
 export type ReadingTheme = 'light' | 'sepia' | 'dark';
 export type ReadingFont = 'serif' | 'sans';
+export type EpubFlow = 'paginated' | 'scrolled';
 
 export interface ReaderPreferences {
   fontSize: number;
@@ -10,6 +11,7 @@ export interface ReaderPreferences {
   fontFamily: ReadingFont;
   readingTheme: ReadingTheme;
   zoom: number;
+  flow: EpubFlow;
 }
 
 const STORAGE_KEY = 'readerPreferences.v1';
@@ -20,6 +22,7 @@ const DEFAULTS: ReaderPreferences = {
   fontFamily: 'serif',
   readingTheme: 'light',
   zoom: 100,
+  flow: 'paginated',
 };
 
 const FONT_SIZES = { min: 70, max: 180, step: 10 };
@@ -32,6 +35,10 @@ function isReadingTheme(value: unknown): value is ReadingTheme {
 
 function isReadingFont(value: unknown): value is ReadingFont {
   return value === 'serif' || value === 'sans';
+}
+
+function isEpubFlow(value: unknown): value is EpubFlow {
+  return value === 'paginated' || value === 'scrolled';
 }
 
 /**
@@ -47,6 +54,7 @@ export class ReaderPreferencesService {
   readonly fontFamily = signal(this.initial.fontFamily);
   readonly readingTheme = signal(this.initial.readingTheme);
   readonly zoom = signal(this.initial.zoom);
+  readonly flow = signal<EpubFlow>(this.initial.flow);
 
   readonly fontScale = computed(() => this.fontSize() / 100);
   readonly zoomScale = computed(() => this.zoom() / 100);
@@ -61,6 +69,7 @@ export class ReaderPreferencesService {
         fontFamily: this.fontFamily(),
         readingTheme: this.readingTheme(),
         zoom: this.zoom(),
+        flow: this.flow(),
       };
 
       try {
@@ -108,6 +117,14 @@ export class ReaderPreferencesService {
     this.readingTheme.set(theme);
   }
 
+  setFlow(flow: EpubFlow): void {
+    this.flow.set(flow);
+  }
+
+  toggleFlow(): void {
+    this.flow.set(this.flow() === 'paginated' ? 'scrolled' : 'paginated');
+  }
+
   increaseZoom(): void {
     this.zoom.update((value) => clamp(value + ZOOM_LEVELS.step, ZOOM_LEVELS.min, ZOOM_LEVELS.max));
   }
@@ -130,6 +147,7 @@ export class ReaderPreferencesService {
     this.resetTypography();
     this.readingTheme.set(DEFAULTS.readingTheme);
     this.zoom.set(DEFAULTS.zoom);
+    this.flow.set(DEFAULTS.flow);
   }
 
   private read(): ReaderPreferences {
@@ -163,6 +181,7 @@ export class ReaderPreferencesService {
         zoom: Number.isFinite(value.zoom)
           ? clamp(value.zoom as number, ZOOM_LEVELS.min, ZOOM_LEVELS.max)
           : DEFAULTS.zoom,
+        flow: isEpubFlow(value.flow) ? value.flow : DEFAULTS.flow,
       };
     } catch (error) {
       console.warn('Ignoring invalid reader preferences:', error);

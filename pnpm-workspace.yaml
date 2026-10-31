@@ -41,3 +41,4 @@ minimumReleaseAgeExclude:
   - oxfmt@0.60.0
   - postcss@8.5.22
   - '@types/node@26.4.0 || 26.6.2'
+  - tslib@2.9.1
